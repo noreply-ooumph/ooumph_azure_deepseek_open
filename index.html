@@ -1,19 +1,5 @@
 <!DOCTYPE html>
-<htm
-  // Set correct initial sidebar state based on screen size
-  if (window.innerWidth <= 768) {
-    $('sidebar').classList.add('collapsed');
-    $('sidebar').classList.remove('open');
-  }
-  // Responsive resize handler
-  window.addEventListener('resize', function() {
-    const sb = $('sidebar');
-    if (window.innerWidth > 768) {
-      // Desktop: restore normal flow, remove mobile classes
-      sb.classList.remove('open');
-      hideSbOverlay();
-    }
-  });l lang="en">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1111,6 +1097,21 @@ function init() {
 }
 
 init();
+// Set correct initial sidebar state based on screen size
+  if (window.innerWidth <= 768) {
+    $('sidebar').classList.add('collapsed');
+    $('sidebar').classList.remove('open');
+  }
+  // Responsive resize handler
+  window.addEventListener('resize', function() {
+    const sb = $('sidebar');
+    if (window.innerWidth > 768) {
+      // Desktop: restore normal flow, remove mobile classes
+      sb.classList.remove('open');
+      hideSbOverlay();
+    }
+  });
+
 
 // ═══════════════════════════════════════════════════════
 // EXPORT / DOWNLOAD SYSTEM
