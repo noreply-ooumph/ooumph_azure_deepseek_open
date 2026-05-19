@@ -180,6 +180,14 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   #messages{padding:0 10px}
   .msg-body{max-width:88%}
 }
+
+/* Export toolbar */
+.export-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;padding:8px 10px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)}
+.export-label{font-size:11px;color:var(--muted);white-space:nowrap;margin-right:2px}
+.export-btn{display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text);cursor:pointer;transition:background var(--trans),border-color var(--trans);white-space:nowrap}
+.export-btn:hover{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.export-more-btn{color:var(--muted)}
+.export-more-list{display:none;flex-wrap:wrap;gap:5px;margin-top:4px;width:100%;padding-top:6px;border-top:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -675,6 +683,7 @@ async function send() {
   } finally {
     aMsg.streaming = false;
     cEl.innerHTML = renderMd(aMsg.content);
+    checkAndAddExportButtons(aMsg, cEl);
     S.streaming = false;
     S.current.updatedAt = now();
     updateSend();
@@ -978,6 +987,259 @@ function init() {
 }
 
 init();
+
+// ═══════════════════════════════════════════════════════
+// EXPORT / DOWNLOAD SYSTEM
+// ═══════════════════════════════════════════════════════
+const EXPORT_KEYWORDS = {
+  pdf:  /\b(pdf|portable document)\b/i,
+  png:  /\b(png|image|screenshot|picture|photo|graphic)\b/i,
+  jpeg: /\b(jpg|jpeg)\b/i,
+  docx: /\b(docx|word document|ms word|word file)\b/i,
+  txt:  /\b(txt|text file|plain text)\b/i,
+  csv:  /\b(csv|spreadsheet|comma.separated)\b/i,
+  md:   /\b(markdown|md file|\.md)\b/i,
+  html: /\b(html file|webpage|web page)\b/i,
+  svg:  /\b(svg|vector)\b/i,
+};
+
+function detectRequestedFormat() {
+  if (!S.current || !S.current.messages) return null;
+  const lastUser = [...S.current.messages].reverse().find(m => m.role === 'user');
+  if (!lastUser) return null;
+  const txt = (typeof lastUser.content === 'string' ? lastUser.content : '').toLowerCase();
+  for (const [fmt, rx] of Object.entries(EXPORT_KEYWORDS)) {
+    if (rx.test(txt)) return fmt;
+  }
+  return null;
+}
+
+function checkAndAddExportButtons(aMsg, cEl) {
+  if (!aMsg.content || aMsg.content.length < 30) return;
+  const fmt = detectRequestedFormat();
+  const icons = { pdf:'PDF', png:'PNG', jpeg:'JPEG', docx:'DOCX', txt:'TXT', csv:'CSV', md:'MD', html:'HTML', svg:'SVG' };
+  const emojs = { pdf:'📄', png:'🖼️', jpeg:'🖼️', docx:'📝', txt:'📋', csv:'📊', md:'⬇️', html:'🌐', svg:'🎨' };
+  // Primary: requested format (if any) + txt + md; always show
+  const primary = fmt ? [fmt, 'txt', 'md'] : ['txt', 'md', 'pdf'];
+  const shown = [...new Set(primary)];
+  const extra = Object.keys(icons).filter(f => !shown.includes(f));
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'export-toolbar';
+  toolbar.innerHTML = '<span class="export-label">💾 Save as:</span>' +
+    shown.map(f =>
+      '<button class="export-btn" onclick="doExport(\''+aMsg.id+'\',\''+f+'\')">'+emojs[f]+' '+icons[f]+'</button>'
+    ).join('') +
+    '<button class="export-btn export-more-btn" onclick="toggleMoreExports(this,\''+aMsg.id+'\')">▾ More</button>' +
+    '<div class="export-more-list" style="display:none">' +
+    extra.map(f =>
+      '<button class="export-btn" onclick="doExport(\''+aMsg.id+'\',\''+f+'\')">'+emojs[f]+' '+icons[f]+'</button>'
+    ).join('') + '</div>';
+
+  cEl.parentNode.insertBefore(toolbar, cEl.nextSibling);
+}
+
+function toggleMoreExports(btn, id) {
+  const list = btn.nextElementSibling;
+  if (!list) return;
+  const isOpen = list.style.display === 'flex';
+  list.style.display = isOpen ? 'none' : 'flex';
+  btn.textContent = isOpen ? '▾ More' : '▴ Less';
+}
+
+function getMsgContent(msgId) {
+  if (!S.current) return '';
+  const m = S.current.messages.find(x => x.id === msgId);
+  return m ? (typeof m.content === 'string' ? m.content : '') : '';
+}
+
+async function doExport(msgId, format) {
+  const content = getMsgContent(msgId);
+  if (!content) { alert('No content to export.'); return; }
+  const title = (S.current && S.current.title ? S.current.title : 'ooumph-chat').replace(/[^a-z0-9\-_ ]/gi,'').trim() || 'export';
+  const fname = title.replace(/\s+/g,'-').toLowerCase();
+  try {
+    if (format==='txt')  return exportTxt(content, fname);
+    if (format==='md')   return exportMd(content, fname);
+    if (format==='html') return exportHtml(content, fname);
+    if (format==='csv')  return exportCsv(content, fname);
+    if (format==='svg')  return exportSvg(content, fname);
+    if (format==='pdf')  return await exportPdf(content, fname);
+    if (format==='png' || format==='jpeg') return await exportImage(msgId, fname, format);
+    if (format==='docx') return await exportDocx(content, fname);
+    exportTxt(content, fname);
+  } catch(e) { alert('Export failed: ' + e.message); }
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+}
+function downloadText(text, filename, mime) {
+  downloadBlob(new Blob([text], { type: mime || 'text/plain' }), filename);
+}
+
+function exportTxt(content, fname) { downloadText(content, fname+'.txt', 'text/plain;charset=utf-8'); }
+function exportMd(content, fname)  { downloadText(content, fname+'.md',  'text/markdown;charset=utf-8'); }
+
+function exportHtml(content, fname) {
+  const t = (S.current && S.current.title) ? S.current.title : 'Ooumph AI Chat';
+  const html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>'+esc(t)+'</title>\n<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">\n<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.7;color:#1a1a1a}pre{background:#2a2a2a;color:#ececec;padding:16px;border-radius:8px;overflow-x:auto}code{background:rgba(0,0,0,0.07);padding:2px 5px;border-radius:3px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px}th{background:#f0f0f0}blockquote{border-left:4px solid #c96442;padding-left:14px;color:#666;margin:12px 0}</style>\n</head>\n<body>\n<h1>'+esc(t)+'</h1>\n<p style="color:#888;font-size:13px">Exported from Ooumph AI Chat · '+new Date().toLocaleString()+'</p>\n'+marked.parse(content)+'\n</body>\n</html>';
+  downloadText(html, fname+'.html', 'text/html;charset=utf-8');
+}
+
+function exportCsv(content, fname) {
+  const lines = content.split('\n');
+  const tRows = lines.filter(function(l){ return l.trim().startsWith('|'); });
+  var csv;
+  if (tRows.length > 0) {
+    csv = tRows.filter(function(l){ return !l.match(/^\|[-: |]+\|$/); })
+      .map(function(l){ return l.replace(/^\|/,'').replace(/\|$/,'').split('|').map(function(c){ var v=c.trim().replace(/"/g,'""'); return (v.includes(',')||v.includes('"'))?'"'+v+'"':v; }).join(','); })
+      .join('\n');
+  } else {
+    csv = lines.filter(function(l){ return l.trim(); }).map(function(l){ var v=l.replace(/"/g,'""'); return '"'+v+'"'; }).join('\n');
+  }
+  downloadText(csv, fname+'.csv', 'text/csv;charset=utf-8');
+}
+
+function exportSvg(content, fname) {
+  const lines = content.split('\n');
+  const lineH=18, pad=20, width=800;
+  const height=lines.length*lineH+pad*2;
+  var tspans = lines.map(function(l,i){ return '<tspan x="'+pad+'" dy="'+(i===0?0:lineH)+'">'+esc(l)+'</tspan>'; }).join('');
+  var svg = '<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'">\n  <rect width="100%" height="100%" fill="#1a1a1a"/>\n  <text font-family="monospace" font-size="13" fill="#ececec" x="'+pad+'" y="'+pad+'">\n    '+tspans+'\n  </text>\n</svg>';
+  downloadText(svg, fname+'.svg', 'image/svg+xml;charset=utf-8');
+}
+
+function loadScript(src) {
+  return new Promise(function(resolve, reject) {
+    if (document.querySelector('script[src="'+src+'"]')) { resolve(); return; }
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = function() { reject(new Error('Failed to load: '+src)); };
+    document.head.appendChild(s);
+  });
+}
+
+async function exportPdf(content, fname) {
+  if (!window.jspdf) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }
+  var jsPDF = window.jspdf.jsPDF;
+  var doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  var pageW = doc.internal.pageSize.getWidth();
+  var pageH = doc.internal.pageSize.getHeight();
+  var margin = 15, usableW = pageW - margin*2;
+  var y = margin;
+
+  var title = (S.current && S.current.title) ? S.current.title : 'Ooumph AI Chat';
+  doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.setTextColor(40,40,40);
+  doc.text(title, margin, y); y += 8;
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(130,130,130);
+  doc.text('Exported from Ooumph AI Chat · '+new Date().toLocaleString(), margin, y); y += 8;
+  doc.setDrawColor(200,200,200); doc.line(margin, y, pageW-margin, y); y += 6;
+  doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40);
+
+  var lines = content.split('\n');
+  for (var i=0; i<lines.length; i++) {
+    var line = lines[i];
+    var h1 = line.match(/^# (.+)/);
+    var h2 = line.match(/^## (.+)/);
+    var h3 = line.match(/^### (.+)/);
+    var isCode = line.startsWith('    ') || line.startsWith('\t');
+    var isEmpty = line.trim() === '';
+    var isHr = /^(-{3,}|={3,})$/.test(line.trim());
+    if (isEmpty) { y+=4; continue; }
+    if (isHr) { doc.setDrawColor(200,200,200); doc.line(margin,y,pageW-margin,y); y+=5; continue; }
+    if (h1) {
+      doc.setFontSize(15); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+      var w=doc.splitTextToSize(h1[1],usableW);
+      if(y+w.length*7>pageH-margin){doc.addPage();y=margin;}
+      doc.text(w,margin,y); y+=w.length*7+3;
+      doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40);
+    } else if (h2) {
+      doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(50,50,50);
+      var w=doc.splitTextToSize(h2[1],usableW);
+      if(y+w.length*6>pageH-margin){doc.addPage();y=margin;}
+      doc.text(w,margin,y); y+=w.length*6+3;
+      doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40);
+    } else if (h3) {
+      doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(60,60,60);
+      var w=doc.splitTextToSize(h3[1],usableW);
+      if(y+w.length*5>pageH-margin){doc.addPage();y=margin;}
+      doc.text(w,margin,y); y+=w.length*5+2;
+      doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40);
+    } else if (isCode) {
+      doc.setFont('courier','normal'); doc.setFontSize(9); doc.setFillColor(245,245,245); doc.setTextColor(60,60,60);
+      var clean=line.replace(/^\s+/,'');
+      var w=doc.splitTextToSize(clean,usableW-8);
+      var bh=w.length*5+4;
+      if(y+bh>pageH-margin){doc.addPage();y=margin;}
+      doc.roundedRect(margin,y-3,usableW,bh,2,2,'F');
+      doc.text(w,margin+4,y); y+=bh+1;
+      doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(40,40,40);
+    } else {
+      var clean=line.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/`(.+?)`/g,'$1').replace(/^[\-\*] /,'• ');
+      var w=doc.splitTextToSize(clean,usableW);
+      if(y+w.length*5>pageH-margin){doc.addPage();y=margin;}
+      doc.text(w,margin,y); y+=w.length*5+1;
+    }
+  }
+  var pageCount=doc.internal.getNumberOfPages();
+  for(var p=1;p<=pageCount;p++){
+    doc.setPage(p); doc.setFontSize(8); doc.setTextColor(160,160,160);
+    doc.text(p+' / '+pageCount, pageW/2, pageH-8, {align:'center'});
+  }
+  doc.save(fname+'.pdf');
+}
+
+async function exportImage(msgId, fname, format) {
+  if (!window.html2canvas) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  }
+  var msgEl = document.querySelector('[data-id="'+msgId+'"] .msg-bubble');
+  if (!msgEl) { alert('Cannot find message to capture.'); return; }
+  var canvas = await html2canvas(msgEl, { backgroundColor:'#2f2f2f', scale:2, useCORS:true, logging:false });
+  var mime = format==='jpeg' ? 'image/jpeg' : 'image/png';
+  var ext  = format==='jpeg' ? 'jpg' : 'png';
+  var quality = format==='jpeg' ? 0.92 : undefined;
+  canvas.toBlob(function(blob){ if(blob) downloadBlob(blob, fname+'.'+ext); }, mime, quality);
+}
+
+async function exportDocx(content, fname) {
+  if (!window.docx) {
+    await loadScript('https://unpkg.com/docx@8.5.0/build/index.js');
+  }
+  var Document=window.docx.Document, Packer=window.docx.Packer, Paragraph=window.docx.Paragraph,
+      TextRun=window.docx.TextRun, HeadingLevel=window.docx.HeadingLevel;
+  var children=[];
+  var t=(S.current&&S.current.title)?S.current.title:'Ooumph AI Chat';
+  children.push(new Paragraph({text:t, heading:HeadingLevel.TITLE}));
+  children.push(new Paragraph({children:[new TextRun({text:'Exported · '+new Date().toLocaleString(),color:'888888',size:18})]}));
+  children.push(new Paragraph({text:''}));
+  var lines=content.split('\n');
+  for(var i=0;i<lines.length;i++){
+    var line=lines[i];
+    var h1=line.match(/^# (.+)/), h2=line.match(/^## (.+)/), h3=line.match(/^### (.+)/);
+    var bullet=line.match(/^[\-\*] (.+)/), num=line.match(/^\d+\. (.+)/);
+    if(!line.trim()){children.push(new Paragraph({text:''}));}
+    else if(h1){children.push(new Paragraph({text:h1[1],heading:HeadingLevel.HEADING_1}));}
+    else if(h2){children.push(new Paragraph({text:h2[1],heading:HeadingLevel.HEADING_2}));}
+    else if(h3){children.push(new Paragraph({text:h3[1],heading:HeadingLevel.HEADING_3}));}
+    else if(bullet){children.push(new Paragraph({text:bullet[1],bullet:{level:0}}));}
+    else{
+      var clean=line.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/`(.+?)`/g,'$1');
+      children.push(new Paragraph({children:[new TextRun({text:clean})]}));
+    }
+  }
+  var doc=new Document({sections:[{children:children}]});
+  var buf=await Packer.toBuffer(doc);
+  downloadBlob(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}),fname+'.docx');
+}
 </script>
 </body>
 </html>
