@@ -1,0 +1,6 @@
+node_modules/
+.env
+chats.json
+skills.json
+*.db
+.DS_Store
