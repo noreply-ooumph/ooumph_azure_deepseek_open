@@ -1,34 +1,36 @@
-const http = require("http");
-const https = require("https");
-const fs = require("fs");
-const path = require("path");
-const url = require("url");
+require("dotenv").config();
+const http   = require("http");
+const https  = require("https");
+const fs     = require("fs");
+const path   = require("path");
+const url    = require("url");
+const db     = require("./db");
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const AZURE_BASE    = process.env.AZURE_BASE    || "https://ai-praveenmishraai8491456994967768.services.ai.azure.com";
-const AZURE_API_KEY = process.env.AZURE_API_KEY || "Fq04ZUOnjv0YpY39JUp9YZ922aZqTpc7glsIpbBl2Ki11ZIAmb0qJQQJ99CEACYeBjFXJ3w3AAAAACOGQ9Nb";
+const AZURE_API_KEY = process.env.AZURE_API_KEY || "";
 const API_VERSION   = process.env.API_VERSION   || "2024-05-01-preview";
 const PORT          = process.env.PORT          || 3000;
 const AZURE_HOST    = AZURE_BASE.replace(/^https?:\/\//, "").replace(/\/+$/, "");
 
 const DEPLOYMENTS = [
-  "DeepSeek-V4-Flash",
-  "DeepSeek-V4-Flash-2",
-  "DeepSeek-V4-Flash-3",
-  "DeepSeek-V3-0324",
-  "DeepSeek-V3.2",
-  "Kimi-K2.6",
-];
+    "DeepSeek-V4-Flash",
+    "DeepSeek-V4-Flash-2",
+    "DeepSeek-V4-Flash-3",
+    "DeepSeek-V3-0324",
+    "DeepSeek-V3.2",
+    "Kimi-K2.6",
+  ];
 
 const SKILLS_FILE = path.join(__dirname, "skills.json");
 const CHATS_FILE  = path.join(__dirname, "chats.json");
 
 const DEFAULT_SKILLS = [
-  { id:"code-expert",      name:"Code Expert",      description:"Senior engineer mode — detailed, production-ready code", icon:"💻", prompt:"You are a senior software engineer. Always write production-ready, well-commented code. Prefer explicit error handling. When showing code, always specify the language and add a brief explanation after." },
-  { id:"concise",          name:"Concise Mode",     description:"Short, direct answers only",                             icon:"⚡", prompt:"Reply in as few words as possible. No preamble, no filler. Bullet points preferred. Max 3 sentences unless code is required." },
-  { id:"document-analyst", name:"Document Analyst", description:"Extract, summarize and analyse uploaded documents",      icon:"📄", prompt:"You are a document analysis expert. When given a document, first provide a structured summary with key sections, then answer questions about it with direct references to the source text." },
-  { id:"creative",         name:"Creative Writer",  description:"Rich, creative and expressive writing",                  icon:"✍️", prompt:"You are a creative writing assistant. Write with vivid language, strong narrative flow, and emotional depth. Always offer to iterate or explore alternate directions." },
-];
+  { id:"code-expert",      name:"Code Expert",      description:"Senior engineer mode — production-ready code",                   icon:"💻", prompt:"You are a senior software engineer. Always write production-ready, well-commented code with explicit error handling. Specify the language for every code block and add a brief explanation after.",                                                                                         createdAt: new Date().toISOString() },
+  { id:"concise",          name:"Concise Mode",      description:"Short, direct answers only",                                    icon:"⚡", prompt:"Reply in as few words as possible. No preamble, no filler. Bullet points preferred. Max 3 sentences unless code is required.",                                                                                                                                     createdAt: new Date().toISOString() },
+  { id:"document-analyst", name:"Document Analyst",  description:"Extract, summarise and analyse uploaded documents",             icon:"📄", prompt:"You are a document analysis expert. When given a document, provide a structured summary with key sections, then answer questions with direct references to the source text.",                                                                                          createdAt: new Date().toISOString() },
+  { id:"creative",         name:"Creative Writer",   description:"Rich, creative and expressive writing",                         icon:"✍️", prompt:"You are a creative writing assistant. Write with vivid language, strong narrative flow, and emotional depth. Always offer to iterate or explore alternate directions.",                                                                                             createdAt: new Date().toISOString() },
+  ];
 
 const MIME = { ".html":"text/html", ".js":"application/javascript", ".css":"text/css", ".json":"application/json", ".ico":"image/x-icon" };
 
@@ -38,183 +40,254 @@ function readJSON(p)       { try { return JSON.parse(fs.readFileSync(p, "utf8"))
 function writeJSON(p, d)   { fs.writeFileSync(p, JSON.stringify(d, null, 2)); }
 
 initFile(SKILLS_FILE, DEFAULT_SKILLS);
-initFile(CHATS_FILE, []);
+initFile(CHATS_FILE,  []);
 
 // ─── Body parsers ─────────────────────────────────────────────────────────────
 function parseJSONBody(req) {
-  return new Promise((resolve, reject) => {
-    let b = "";
-    req.on("data", c => b += c);
-    req.on("end", () => { try { resolve(JSON.parse(b)); } catch (e) { reject(e); } });
-    req.on("error", reject);
-  });
+    return new Promise((resolve, reject) => {
+          let b = "";
+          req.on("data", c => b += c);
+          req.on("end",  () => { try { resolve(JSON.parse(b)); } catch (e) { reject(e); } });
+          req.on("error", reject);
+    });
 }
 
 async function parseMultipart(req) {
-  const Busboy = require("busboy");
-  return new Promise((resolve, reject) => {
-    const bb = Busboy({ headers: req.headers, limits: { fileSize: 10 * 1024 * 1024, files: 3 } });
-    const fields = {}, files = [];
-    bb.on("field", (k, v) => fields[k] = v);
-    bb.on("file", (name, stream, info) => {
-      const chunks = [];
-      stream.on("data", c => chunks.push(c));
-      stream.on("end", () => files.push({ filename: info.filename, mimetype: info.mimeType, buffer: Buffer.concat(chunks) }));
+    const Busboy = require("busboy");
+    return new Promise((resolve, reject) => {
+          const bb = Busboy({ headers: req.headers, limits: { fileSize: 10 * 1024 * 1024, files: 3 } });
+          const fields = {}, files = [];
+          bb.on("field", (k, v) => fields[k] = v);
+          bb.on("file",  (name, stream, info) => {
+                  const chunks = [];
+                  stream.on("data", c => chunks.push(c));
+                  stream.on("end",  () => files.push({ filename: info.filename, mimetype: info.mimeType, buffer: Buffer.concat(chunks) }));
+          });
+          bb.on("close", () => resolve({ fields, files }));
+          bb.on("error", reject);
+          req.pipe(bb);
     });
-    bb.on("close", () => resolve({ fields, files }));
-    bb.on("error", reject);
-    req.pipe(bb);
-  });
 }
 
 async function processFile({ filename, mimetype, buffer }) {
-  if (mimetype.startsWith("image/"))
-    return { type: "image_url", image_url: { url: `data:${mimetype};base64,${buffer.toString("base64")}` } };
-  if (mimetype === "application/pdf") {
-    try {
-      const data = await require("pdf-parse")(buffer);
-      return { type: "text", text: `[PDF: ${filename}]\n\n${data.text}` };
-    } catch { return { type: "text", text: `[PDF: ${filename}] (text extraction failed)` }; }
-  }
-  return { type: "text", text: `[File: ${filename}]\n\n${buffer.toString("utf8")}` };
+    if (mimetype.startsWith("image/"))
+          return { type: "image_url", image_url: { url: `data:${mimetype};base64,${buffer.toString("base64")}` } };
+    if (mimetype === "application/pdf") {
+          try {
+                  const data = await require("pdf-parse")(buffer);
+                  return { type: "text", text: `[PDF: ${filename}]\n\n${data.text}` };
+          } catch { return { type: "text", text: `[PDF: ${filename}] (text extraction failed)` }; }
+    }
+    return { type: "text", text: `[File: ${filename}]\n\n${buffer.toString("utf8")}` };
 }
 
 // ─── Azure proxy (core — unchanged) ──────────────────────────────────────────
 function proxyToAzure(payload, res) {
-  const body = JSON.stringify({
-    model:       (payload.deployment || DEPLOYMENTS[0]).trim(),
-    messages:    payload.messages || [],
-    max_tokens:  payload.max_tokens || 2000,
-    temperature: payload.temperature ?? 0.7,
-    stream:      true,
-  });
-  const opts = {
-    hostname: AZURE_HOST,
-    path:     `/models/chat/completions?api-version=${(payload.apiVersion || API_VERSION).trim()}`,
-    method:   "POST",
-    headers:  { "Content-Type": "application/json", "api-key": AZURE_API_KEY, "Content-Length": Buffer.byteLength(body) },
-  };
-  const azReq = https.request(opts, azRes => {
-    res.writeHead(azRes.statusCode, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
-    azRes.on("data", c => res.write(c));
-    azRes.on("end", () => res.end());
-  });
-  azReq.on("error", e => { if (!res.headersSent) { res.writeHead(502); res.end(JSON.stringify({ error: e.message })); } });
-  azReq.write(body);
-  azReq.end();
+    const body = JSON.stringify({
+          model:       (payload.deployment || DEPLOYMENTS[0]).trim(),
+          messages:    payload.messages || [],
+          max_tokens:  payload.max_tokens  || 2000,
+          temperature: payload.temperature ?? 0.7,
+          stream:      true,
+    });
+    const opts = {
+          hostname: AZURE_HOST,
+          path:     `/models/chat/completions?api-version=${(payload.apiVersion || API_VERSION).trim()}`,
+          method:   "POST",
+          headers:  { "Content-Type": "application/json", "api-key": AZURE_API_KEY, "Content-Length": Buffer.byteLength(body) },
+    };
+    const azReq = https.request(opts, azRes => {
+          res.writeHead(azRes.statusCode, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
+          azRes.on("data", c => res.write(c));
+          azRes.on("end",  () => res.end());
+    });
+    azReq.on("error", e => { if (!res.headersSent) { res.writeHead(502); res.end(JSON.stringify({ error: e.message })); } });
+    azReq.write(body);
+    azReq.end();
+}
+
+// ─── Cosmos / JSON dual-mode helpers ─────────────────────────────────────────
+async function cosmosGetAll(container, jsonFile) {
+    if (db.isReady() && container) {
+          const { resources } = await container.items.readAll().fetchAll();
+          return resources;
+    }
+    return readJSON(jsonFile) || [];
+}
+
+async function cosmosUpsert(container, jsonFile, item) {
+    if (db.isReady() && container) {
+          await container.items.upsert(item);
+          return;
+    }
+    const arr = readJSON(jsonFile) || [];
+    const idx = arr.findIndex(x => x.id === item.id);
+    if (idx >= 0) arr[idx] = item; else arr.push(item);
+    writeJSON(jsonFile, arr);
+}
+
+async function cosmosDelete(container, jsonFile, id) {
+    if (db.isReady() && container) {
+          await container.item(id, id).delete();
+          return;
+    }
+    const arr = (readJSON(jsonFile) || []).filter(x => x.id !== id);
+    writeJSON(jsonFile, arr);
+}
+
+async function cosmosGetById(container, jsonFile, id) {
+    if (db.isReady() && container) {
+          try { const { resource } = await container.item(id, id).read(); return resource; } catch { return null; }
+    }
+    return (readJSON(jsonFile) || []).find(x => x.id === id) || null;
 }
 
 // ─── Server ───────────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
-  const { pathname } = url.parse(req.url);
+    const { pathname } = url.parse(req.url);
 
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
+                                   res.setHeader("Access-Control-Allow-Origin",  "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,PATCH,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
 
-  const ok  = (d, code = 200) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(d)); };
-  const err = (code, msg)     => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: msg })); };
+                                   const ok  = (d, code = 200) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(d)); };
+    const err = (code, msg)     => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: msg })); };
 
-  try {
-    // ── Models ──
-    if (pathname === "/api/models" && req.method === "GET")
-      return ok({ models: DEPLOYMENTS, apiVersion: API_VERSION });
-
-    // ── Skills ──
-    if (pathname === "/api/skills") {
-      if (req.method === "GET")  return ok(readJSON(SKILLS_FILE) || []);
-      if (req.method === "POST") {
-        const s = await parseJSONBody(req);
-        s.id = s.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-        const skills = readJSON(SKILLS_FILE) || [];
-        skills.push(s); writeJSON(SKILLS_FILE, skills);
-        return ok(s, 201);
+                                   try {
+                                         // ── Models ──────────────────────────────────────────────────────────────
+      if (pathname === "/api/models" && req.method === "GET") {
+              return ok({ deployments: DEPLOYMENTS });
       }
-    }
-    const sm = pathname.match(/^\/api\/skills\/(.+)$/);
-    if (sm) {
-      const id = decodeURIComponent(sm[1]);
-      const skills = readJSON(SKILLS_FILE) || [];
-      if (req.method === "PUT") {
-        const u = await parseJSONBody(req);
-        const i = skills.findIndex(s => s.id === id);
-        if (i < 0) return err(404, "Not found");
-        skills[i] = { ...skills[i], ...u, id }; writeJSON(SKILLS_FILE, skills); return ok(skills[i]);
-      }
-      if (req.method === "DELETE") { writeJSON(SKILLS_FILE, skills.filter(s => s.id !== id)); res.writeHead(204); return res.end(); }
-    }
 
-    // ── Chats ──
-    if (pathname === "/api/chats") {
-      if (req.method === "GET") {
-        const chats = readJSON(CHATS_FILE) || [];
-        return ok(chats.map(c => ({ id: c.id, title: c.title, model: c.model, createdAt: c.createdAt, starred: c.starred })));
+      // ── Skills ──────────────────────────────────────────────────────────────
+      if (pathname === "/api/skills") {
+              const sc = db.getSkillsContainer();
+              if (req.method === "GET") {
+                        return ok(await cosmosGetAll(sc, SKILLS_FILE));
+              }
+              if (req.method === "POST") {
+                        const body  = await parseJSONBody(req);
+                        const skill = { ...body, id: body.id || `skill-${Date.now()}`, createdAt: body.createdAt || new Date().toISOString() };
+                        await cosmosUpsert(sc, SKILLS_FILE, skill);
+                        return ok(skill, 201);
+              }
       }
-      if (req.method === "POST") {
-        const chat = await parseJSONBody(req);
-        const chats = readJSON(CHATS_FILE) || [];
-        const i = chats.findIndex(c => c.id === chat.id);
-        if (i >= 0) chats[i] = { ...chats[i], ...chat }; else chats.unshift(chat);
-        writeJSON(CHATS_FILE, chats); return ok({ ok: true });
-      }
-    }
-    const cm = pathname.match(/^\/api\/chats\/(.+)$/);
-    if (cm) {
-      const id = decodeURIComponent(cm[1]);
-      const chats = readJSON(CHATS_FILE) || [];
-      if (req.method === "GET") {
-        const c = chats.find(c => c.id === id);
-        return c ? ok(c) : err(404, "Not found");
-      }
-      if (req.method === "DELETE") { writeJSON(CHATS_FILE, chats.filter(c => c.id !== id)); res.writeHead(204); return res.end(); }
-    }
 
-    // ── Chat proxy ──
-    if (pathname === "/api/chat" && req.method === "POST") {
-      const ct = req.headers["content-type"] || "";
-      if (ct.includes("multipart/form-data")) {
-        const { fields, files } = await parseMultipart(req);
-        const payload = JSON.parse(fields.payload || "{}");
-        if (files.length) {
-          const fc = await Promise.all(files.map(processFile));
-          const msgs = payload.messages || [];
-          let li = -1;
-          for (let i = msgs.length - 1; i >= 0; i--) { if (msgs[i].role === "user") { li = i; break; } }
-          if (li >= 0) {
-            const lm = msgs[li];
-            const tc = typeof lm.content === "string" ? [{ type: "text", text: lm.content }] : (lm.content || []);
-            msgs[li].content = [...tc, ...fc];
-          }
-          payload.messages = msgs;
-        }
-        return proxyToAzure(payload, res);
-      }
-      let b = "";
-      req.on("data", c => b += c);
-      req.on("end", () => {
-        let p; try { p = JSON.parse(b); } catch { return err(400, "Invalid JSON"); }
-        proxyToAzure(p, res);
-      });
-      return;
-    }
+      const skillMatch = pathname.match(/^\/api\/skills\/(.+)$/);
+                                         if (skillMatch) {
+                                                 const id = decodeURIComponent(skillMatch[1]);
+                                                 const sc = db.getSkillsContainer();
+                                                 if (req.method === "PUT") {
+                                                           const body  = await parseJSONBody(req);
+                                                           const skill = { ...body, id };
+                                                           await cosmosUpsert(sc, SKILLS_FILE, skill);
+                                                           return ok(skill);
+                                                 }
+                                                 if (req.method === "DELETE") {
+                                                           await cosmosDelete(sc, SKILLS_FILE, id);
+                                                           return ok({ ok: true });
+                                                 }
+                                         }
 
-    // ── Static files ──
-    let fp = pathname === "/" ? "/index.html" : pathname;
-    fp = path.join(__dirname, fp);
-    fs.readFile(fp, (e, d) => {
-      if (e) { res.writeHead(404); return res.end("404 Not Found"); }
-      res.writeHead(200, { "Content-Type": MIME[path.extname(fp)] || "text/plain" });
-      res.end(d);
-    });
-  } catch (e) {
-    console.error(e);
-    if (!res.headersSent) err(500, e.message);
-  }
+      // ── Chats ───────────────────────────────────────────────────────────────
+      if (pathname === "/api/chats") {
+              const cc = db.getChatsContainer();
+              if (req.method === "GET") {
+                        const chats = await cosmosGetAll(cc, CHATS_FILE);
+                        return ok(chats.map(c => ({ id:c.id, title:c.title, model:c.model, createdAt:c.createdAt, updatedAt:c.updatedAt, starred:c.starred })));
+              }
+              if (req.method === "POST") {
+                        const body = await parseJSONBody(req);
+                        const chat = {
+                                    id:           body.id || `chat-${Date.now()}`,
+                                    title:        (body.messages?.find(m => m.role === "user")?.content?.slice(0, 40) || "New Chat"),
+                                    model:        body.model || body.deployment || DEPLOYMENTS[0],
+                                    messages:     body.messages || [],
+                                    createdAt:    body.createdAt || new Date().toISOString(),
+                                    updatedAt:    new Date().toISOString(),
+                                    starred:      body.starred || false,
+                                    systemPrompt: body.systemPrompt || "",
+                        };
+                        await cosmosUpsert(cc, CHATS_FILE, chat);
+                        return ok(chat);
+              }
+      }
+
+      const chatMatch = pathname.match(/^\/api\/chats\/([^/]+)(\/star)?$/);
+                                         if (chatMatch) {
+                                                 const id     = decodeURIComponent(chatMatch[1]);
+                                                 const isStar = !!chatMatch[2];
+                                                 const cc     = db.getChatsContainer();
+                                                 if (req.method === "GET" && !isStar) {
+                                                           const chat = await cosmosGetById(cc, CHATS_FILE, id);
+                                                           return chat ? ok(chat) : err(404, "not found");
+                                                 }
+                                                 if (req.method === "DELETE" && !isStar) {
+                                                           await cosmosDelete(cc, CHATS_FILE, id);
+                                                           return ok({ ok: true });
+                                                 }
+                                                 if (req.method === "PATCH" && isStar) {
+                                                           const chat = await cosmosGetById(cc, CHATS_FILE, id);
+                                                           if (!chat) return err(404, "not found");
+                                                           chat.starred   = !chat.starred;
+                                                           chat.updatedAt = new Date().toISOString();
+                                                           await cosmosUpsert(cc, CHATS_FILE, chat);
+                                                           return ok({ starred: chat.starred });
+                                                 }
+                                         }
+
+      // ── Chat (proxy) ─────────────────────────────────────────────────────────
+      if (pathname === "/api/chat" && req.method === "POST") {
+              const ct = req.headers["content-type"] || "";
+              let payload;
+
+                                           if (ct.includes("multipart/form-data")) {
+                                                     const { fields, files } = await parseMultipart(req);
+                                                     payload = JSON.parse(fields.payload || "{}");
+                                                     const userMsg = payload.messages?.at(-1);
+
+                for (const f of files) {
+                            const part = await processFile(f);
+                            if (part.type === "image_url") {
+                                          if (!Array.isArray(userMsg.content)) userMsg.content = [{ type: "text", text: userMsg.content || "" }];
+                                          userMsg.content.push(part);
+                            } else {
+                                          payload.messages = [{ role: "system", content: `The user has uploaded a file. Extracted content:\n\n${part.text}` }, ...payload.messages];
+                            }
+                }
+                                           } else {
+                                                     payload = await parseJSONBody(req);
+                                           }
+
+                                           // Apply skills if present
+                                           if (Array.isArray(payload.skills) && payload.skills.length > 0) {
+                                                     const allSkills = await cosmosGetAll(db.getSkillsContainer(), SKILLS_FILE);
+                                                     const active    = allSkills.filter(s => payload.skills.includes(s.id));
+                                                     if (active.length > 0) {
+                                                                 const systemContent = active.map(s => s.prompt).join("\n\n");
+                                                                 payload.messages = [{ role: "system", content: systemContent }, ...payload.messages.filter(m => m.role !== "system")];
+                                                     }
+                                           }
+
+                                           return proxyToAzure(payload, res);
+      }
+
+      // ── Static files ─────────────────────────────────────────────────────────
+      let filePath = path.join(__dirname, pathname === "/" ? "index.html" : pathname);
+                                         if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+                                                 const ext = path.extname(filePath);
+                                                 res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream" });
+                                                 return fs.createReadStream(filePath).pipe(res);
+                                         }
+
+      err(404, "not found");
+                                   } catch (e) {
+                                         console.error(e);
+                                         err(500, e.message);
+                                   }
 });
 
-server.listen(PORT, () => {
-  console.log(`\n✅  Azure AI Foundry Chat  →  http://localhost:${PORT}`);
-  console.log(`   Base URL : ${AZURE_BASE}`);
-  console.log(`   Models   : ${DEPLOYMENTS.join(", ")}\n`);
+db.init().then(() => {
+    server.listen(PORT, () => console.log(`   Server running on http://localhost:${PORT}`));
 });
