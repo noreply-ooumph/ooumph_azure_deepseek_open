@@ -1,5 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<htm
+  // Set correct initial sidebar state based on screen size
+  if (window.innerWidth <= 768) {
+    $('sidebar').classList.add('collapsed');
+    $('sidebar').classList.remove('open');
+  }
+  // Responsive resize handler
+  window.addEventListener('resize', function() {
+    const sb = $('sidebar');
+    if (window.innerWidth > 768) {
+      // Desktop: restore normal flow, remove mobile classes
+      sb.classList.remove('open');
+      hideSbOverlay();
+    }
+  });l lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -175,10 +189,90 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .btn-ghost:hover{background:var(--surface)}
 .btn-primary{padding:8px 16px;background:var(--accent);color:#fff;border-radius:8px;font-size:13px;font-weight:600;transition:opacity var(--trans)}
 .btn-primary:hover{opacity:0.88}
-@media(max-width:640px){
-  #sidebar{position:fixed;z-index:100;height:100%;left:0}
-  #messages{padding:0 10px}
-  .msg-body{max-width:88%}
+/* ═══ RESPONSIVE — Full breakpoint system ═══ */
+
+/* Mobile overlay backdrop */
+#sb-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);
+  z-index:99;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+  transition:opacity 0.2s ease;
+}
+#sb-overlay.visible{display:block}
+
+/* ── Phone (≤600px) ── */
+@media(max-width:600px){
+  #sidebar{
+    position:fixed;left:0;top:0;height:100%;z-index:100;
+    width:82vw;max-width:300px;min-width:0;
+    transform:translateX(-105%);transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);
+    border-right:1px solid var(--border);
+  }
+  #sidebar.open{transform:translateX(0)}
+  #sidebar.collapsed{transform:translateX(-105%)}
+  .topbar-title{font-size:13px;max-width:120px}
+  .tokens-badge{display:none}
+  #topbar{padding:8px 10px;gap:6px}
+  .model-pill{padding:4px 8px;font-size:11px}
+  #model-label{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar-icon{width:28px;height:28px;font-size:14px}
+  #msgs-wrap{padding-top:8px}
+  #messages{padding:0 8px;gap:14px}
+  .msg-body{max-width:90%}
+  .msg-bubble{font-size:13px;padding:10px 13px;border-radius:14px}
+  #composer-wrap{padding:8px 8px 14px}
+  #composer{border-radius:12px;padding:10px 12px 8px}
+  #input{font-size:13px}
+  .compose-btn{width:28px;height:28px;font-size:15px}
+  #send-btn{width:28px;height:28px}
+  .token-hint{font-size:10px}
+  #skills-tray{bottom:70px;width:calc(100% - 16px);left:8px;transform:none}
+  #skill-panel{width:100%;border-left:none;border-top:1px solid var(--border)}
+  .inst-box{width:96vw;padding:16px}
+  .export-toolbar{gap:4px;padding:6px 8px}
+  .export-btn{padding:3px 7px;font-size:11px}
+  .group-label{font-size:10px}
+  .chat-item-inner{padding:7px 8px}
+  .chat-item-title{font-size:12px}
+}
+
+/* ── Small tablet (601px–768px) ── */
+@media(min-width:601px) and (max-width:768px){
+  #sidebar{
+    position:fixed;left:0;top:0;height:100%;z-index:100;
+    width:260px;min-width:0;
+    transform:translateX(-105%);transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);
+  }
+  #sidebar.open{transform:translateX(0)}
+  #sidebar.collapsed{transform:translateX(-105%)}
+  .topbar-title{font-size:13px}
+  .tokens-badge{font-size:11px}
+  #messages{padding:0 12px}
+  .msg-body{max-width:86%}
+  #skills-tray{bottom:72px}
+}
+
+/* ── Tablet (769px–1024px) ── */
+@media(min-width:769px) and (max-width:1024px){
+  #sidebar{width:220px;min-width:220px}
+  #sidebar.collapsed{width:0;min-width:0;border-right:none}
+  #messages{max-width:680px;padding:0 14px}
+  .msg-body{max-width:78%}
+  #composer-wrap{max-width:680px}
+  .model-pill{font-size:11px}
+}
+
+/* ── Laptop & up (≥1025px) ── */
+@media(min-width:1025px){
+  #sidebar.collapsed{width:0;min-width:0;border-right:none}
+  #messages{max-width:780px}
+  #composer-wrap{max-width:780px}
+}
+
+/* ── Wide screen (≥1400px) ── */
+@media(min-width:1400px){
+  #messages{max-width:900px}
+  #composer-wrap{max-width:900px}
+  .msg-bubble{font-size:15px;line-height:1.7}
 }
 
 /* Export toolbar */
@@ -205,7 +299,10 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
       </div>
     </div>
     <div class="chat-list" id="chat-list"></div>
-  </div>
+  
+  <!-- Mobile sidebar overlay -->
+  <div id="sb-overlay" onclick="toggleSidebar(false)"></div>
+</div>
 
   <!-- Main -->
   <div id="main">
@@ -793,10 +890,37 @@ document.addEventListener("click", e => {
 // SIDEBAR
 // ═══════════════════════════════════════════════════════
 function toggleSidebar(force) {
-  const sb = $("sidebar");
-  if (force === false) { sb.classList.add("collapsed"); return; }
-  if (force === true) { sb.classList.remove("collapsed"); return; }
-  sb.classList.toggle("collapsed");
+  const sb = $('sidebar');
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    // Mobile: use open/closed classes with transform
+    const isOpen = sb.classList.contains('open');
+    const shouldOpen = force === true ? true : force === false ? false : !isOpen;
+    if (shouldOpen) {
+      sb.classList.remove('collapsed');
+      sb.classList.add('open');
+      showSbOverlay();
+    } else {
+      sb.classList.remove('open');
+      sb.classList.add('collapsed');
+      hideSbOverlay();
+    }
+  } else {
+    // Desktop/tablet: use collapsed class (width transition)
+    if (force === false) { sb.classList.add('collapsed'); return; }
+    if (force === true)  { sb.classList.remove('collapsed'); return; }
+    sb.classList.toggle('collapsed');
+  }
+}
+function showSbOverlay() {
+  let ov = $('sb-overlay');
+  if (!ov) return;
+  ov.classList.add('visible');
+}
+function hideSbOverlay() {
+  let ov = $('sb-overlay');
+  if (!ov) return;
+  ov.classList.remove('visible');
 }
 
 // ═══════════════════════════════════════════════════════
