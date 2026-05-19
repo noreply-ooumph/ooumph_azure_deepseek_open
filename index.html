@@ -352,7 +352,7 @@ const tok   = s => Math.round((s||"").length / 4);
 // ═══════════════════════════════════════════════════
 const S = {
   chats:[],current:null,skills:[],activeSkills:new Set(),
-  attachedFiles:[],models:[],model:"DeepSeek-V4-Flash",
+  pendingFiles:[],models:[],model:"DeepSeek-V4-Flash",
   streaming:false,search:"",
   tokens:{p:0,c:0},ctxId:null,trayOpen:false,rpMode:null,rpData:null,ddOpen:false,
 };
@@ -457,7 +457,7 @@ async function deleteChat(id) {
 }
 
 function newChat() {
-  S.current=null; S.activeSkills.clear(); S.attachedFiles=[];
+  S.current=null; S.activeSkills.clear(); S.pendingFiles=[];
   S.tokens={p:0,c:0}; updateTokens();
   renderMsgs(); renderChatList(); renderChips();
   $("input").value=""; autoResize($("input")); updateSend();
@@ -507,7 +507,7 @@ async function toggleStar(e,id) {
   const c=S.chats.find(x=>x.id===id); if(!c) return;
   c.starred=!c.starred;
   if(S.current?.id===id) S.current.starred=c.starred;
-  try{ await api("POST","/api/chats",{id,starred:c.starred}); }catch{}
+  try{ await api("PATCH",`/api/chats/${id}/star`); }catch{}
   renderChatList();
 }
 
@@ -694,7 +694,7 @@ async function saveInst(){
 function handleFiles(files){ Array.from(files).forEach(addFile); $("file-input").value=""; }
 
 function addFile(file){
-  if(S.attachedFiles.length>=3){alert("Max 3 files");return;}
+  if(S.pendingFiles.length>=3){alert("Max 3 files");return;}
   if(file.size>10*1024*1024){alert(`${file.name} > 10 MB`);return;}
   const entry={name:file.name,type:file.type,size:file.size,raw:file,dataUrl:null};
   if(file.type.startsWith("image/")){
@@ -702,13 +702,13 @@ function addFile(file){
     r.onload=e=>{ entry.dataUrl=e.target.result; renderChips(); };
     r.readAsDataURL(file);
   }
-  S.attachedFiles.push(entry); renderChips(); updateSend();
+  S.pendingFiles.push(entry); renderChips(); updateSend();
 }
 
-function removeFile(i){ S.attachedFiles.splice(i,1); renderChips(); updateSend(); }
+function removeFile(i){ S.pendingFiles.splice(i,1); renderChips(); updateSend(); }
 
 function renderChips(){
-  $("file-chips-bar").innerHTML=S.attachedFiles.map((f,i)=>{
+  $("file-chips-bar").innerHTML=S.pendingFiles.map((f,i)=>{
     const thumb=f.dataUrl?`<img src="${f.dataUrl}" alt="">`:
       `<div class="file-chip-icon">${f.type==="application/pdf"?"📄":"📝"}</div>`;
     const sz=f.size<1024?f.size+" B":f.size<1048576?(f.size/1024).toFixed(1)+" KB":(f.size/1048576).toFixed(1)+" MB";
@@ -856,7 +856,7 @@ async function stream(filesArr){
 // ═══════════════════════════════════════════════════
 async function send(){
   const inp=$("input"), text=inp.value.trim();
-  if((!text&&!S.attachedFiles.length)||S.streaming) return;
+  if((!text&&!S.pendingFiles.length)||S.streaming) return;
 
   if(!S.current){
     S.current={id:genId(),title:text.slice(0,42)||"New Chat",model:S.model,messages:[],createdAt:Date.now(),starred:false,instructions:""};
@@ -866,14 +866,14 @@ async function send(){
   }
 
   const uMsg={id:genId(),role:"user",content:text,timestamp:Date.now()};
-  if(S.attachedFiles.length) uMsg.files=S.attachedFiles.map(f=>({name:f.name,type:f.type,size:f.size,dataUrl:f.dataUrl}));
+  if(S.pendingFiles.length) uMsg.files=S.pendingFiles.map(f=>({name:f.name,type:f.type,size:f.size,dataUrl:f.dataUrl}));
   S.current.messages.push(uMsg);
   $("empty-state").style.display="none";
   $("messages").appendChild(mkEl(uMsg)); scrollB();
   S.tokens.p+=tok(text); updateTokens();
 
-  const files=[...S.attachedFiles];
-  inp.value=""; autoResize(inp); S.attachedFiles=[]; renderChips(); updateSend();
+  const files=[...S.pendingFiles];
+  inp.value=""; autoResize(inp); S.pendingFiles=[]; renderChips(); updateSend();
   await stream(files);
 }
 
@@ -888,7 +888,7 @@ function autoResize(ta){
 }
 
 function updateSend(){
-  const ok=$("input").value.trim().length>0||S.attachedFiles.length>0;
+  const ok=$("input").value.trim().length>0||S.pendingFiles.length>0;
   $("send-btn").disabled=!ok||S.streaming;
 }
 
