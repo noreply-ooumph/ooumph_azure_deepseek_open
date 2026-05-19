@@ -1,4 +1,4 @@
-# Azure AI Chat — Local Setup
+# Ooumph AI Chat — Local Setup
 
 ## Requirements
 Node.js v14+  — zero npm installs needed
