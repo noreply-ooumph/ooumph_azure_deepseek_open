@@ -961,6 +961,7 @@ async function init(){
     setPill(S.model);
   }catch{ S.models=[]; }
   await Promise.all([loadChatList(),loadSkills()]);
+  if(S.chats.length&&!S.current)await loadChat(S.chats[0].id);
   renderMsgs();
   $("input").focus();
 }
