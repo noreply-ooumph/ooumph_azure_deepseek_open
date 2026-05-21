@@ -814,8 +814,7 @@ function mkMsgEl(m) {
   let contentHtml="";
   if(m.role==="user"){
     const text=typeof m.content==="string"?m.content:(Array.isArray(m.content)?m.content.find(p=>p.type==="text")?.text||"":"");
-    contentHtml='<div class="msg-bubble">'+esc(text).replace(/
-/g,"<br>")+"</div>";
+    contentHtml='<div class="msg-bubble">'+esc(text).replace(/\n/g,"<br>")+"</div>";
     if(m.files&&m.files.length){
       let chips='<div class="file-chips-inline">';
       m.files.forEach(f=>{
