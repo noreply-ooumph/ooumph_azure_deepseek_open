@@ -1038,11 +1038,11 @@ function renderSkillsGrid() {
   const el=$("skills-grid"); if(!el) return;
   el.innerHTML=S.skills.map(sk=>{
     const act=S.activeSkills.has(sk.id)?"active":"";
-    return '<div class="skill-card '+act+'" onclick="toggleSkill(''+sk.id+'')">'+
+    return '<div class="skill-card '+act+'" onclick="toggleSkill('+sk.id+')">'+
       '<div class="sk-icon">'+(sk.icon||"💡")+"</div>"+
       '<div class="sk-name">'+esc(sk.name)+"</div>"+
       '<div class="sk-desc">'+esc(sk.description||"")+"</div>"+
-      '<button style="margin-top:6px;font-size:11px;opacity:0.6;text-decoration:underline" onclick="event.stopPropagation();openSkillPanel(''+sk.id+'')">Edit</button>'+
+      '<button style="margin-top:6px;font-size:11px;opacity:0.6;text-decoration:underline" onclick="event.stopPropagation();openSkillPanel('+sk.id+')">Edit</button>'+
       "</div>";
   }).join("");
 }
@@ -1210,10 +1210,10 @@ function checkAndAddExportButtons(aMsg,cEl){
   const extra=Object.keys(icons).filter(f=>!shown.includes(f));
   const toolbar=document.createElement("div"); toolbar.className="export-toolbar";
   toolbar.innerHTML='<span class="export-label">💾 Save as:</span>'+
-    shown.map(f=>'<button class="export-btn" onclick="doExport(''+aMsg.id+'',''+f+'')">'+emojs[f]+" "+icons[f]+"</button>").join("")+
-    '<button class="export-btn export-more-btn" onclick="toggleMoreExports(this,''+aMsg.id+'')">&#9662; More</button>'+
+    shown.map(f=>'<button class="export-btn" onclick="doExport('+aMsg.id+','+f+')">'+emojs[f]+" "+icons[f]+"</button>").join("")+
+    '<button class="export-btn export-more-btn" onclick="toggleMoreExports(this,'+aMsg.id+')">&#9662; More</button>'+
     '<div class="export-more-list" style="display:none">'+
-    extra.map(f=>'<button class="export-btn" onclick="doExport(''+aMsg.id+'',''+f+'')">'+emojs[f]+" "+icons[f]+"</button>").join("")+"</div>";
+    extra.map(f=>'<button class="export-btn" onclick="doExport('+aMsg.id+','+f+')">'+emojs[f]+" "+icons[f]+"</button>").join("")+"</div>";
   cEl.parentNode.insertBefore(toolbar,cEl.nextSibling);
 }
 function toggleMoreExports(btn,id){
