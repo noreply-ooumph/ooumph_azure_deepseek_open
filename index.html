@@ -20,7 +20,7 @@ html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,"Segoe
 button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 input,textarea{font:inherit;color:inherit;background:none;border:none;outline:none}
 
-/* ─── SIDEBAR ─── */
+/* âââ SIDEBAR âââ */
 #sidebar{width:260px;min-width:260px;background:var(--sb);display:flex;flex-direction:column;transition:width var(--trans),min-width var(--trans);overflow:hidden;border-right:1px solid var(--border);flex-shrink:0}
 #sidebar.collapsed{width:0;min-width:0;border-right:none}
 .sb-top{padding:10px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
@@ -32,12 +32,12 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 #search{width:100%;padding:8px 10px 8px 30px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text)}
 #search::placeholder{color:var(--muted)}
 
-/* ─── GRAPHIFY TOGGLE ─── */
+/* âââ GRAPHIFY TOGGLE âââ */
 .sb-tabs{display:flex;gap:4px;padding:0 10px 6px}
 .sb-tab{flex:1;padding:5px;border-radius:6px;font-size:11px;font-weight:600;text-align:center;color:var(--muted);transition:background var(--trans),color var(--trans)}
 .sb-tab.active{background:var(--surface);color:var(--text)}
 
-/* ─── CHAT LIST ─── */
+/* âââ CHAT LIST âââ */
 .chat-list{flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column}
 .chat-list::-webkit-scrollbar{width:4px}
 .chat-list::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:2px}
@@ -53,8 +53,11 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .star-btn.on{opacity:1;color:gold}
 .chat-item:hover .star-btn{opacity:0.6}
 .chat-item:hover .star-btn.on{opacity:1}
+.del-btn{opacity:0;font-size:13px;transition:opacity var(--trans),color var(--trans);background:none;border:none;cursor:pointer;padding:2px;color:var(--muted)}
+.chat-item:hover .del-btn{opacity:0.6}
+.del-btn:hover{color:var(--danger)!important;opacity:1!important}
 
-/* ─── GRAPHIFY PANEL ─── */
+/* âââ GRAPHIFY PANEL âââ */
 #graphify-panel{flex:1;overflow:hidden;display:none;flex-direction:column;padding:8px}
 #graphify-panel.visible{display:flex}
 #graphify-canvas-wrap{flex:1;position:relative;overflow:hidden;border-radius:10px;background:var(--surface)}
@@ -65,13 +68,13 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .ginfo-title{font-weight:700;margin-bottom:4px;color:var(--accent)}
 .ginfo-meta{color:var(--muted);line-height:1.6}
 
-/* ─── CONTEXT MENU ─── */
+/* âââ CONTEXT MENU âââ */
 .ctx-menu{position:fixed;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px;z-index:1000;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,0.4)}
 .ctx-menu button{display:block;width:100%;text-align:left;padding:8px 12px;font-size:13px;border-radius:6px;transition:background var(--trans)}
 .ctx-menu button:hover{background:var(--surface)}
 .ctx-menu button.danger{color:var(--danger)}
 
-/* ─── MAIN ─── */
+/* âââ MAIN âââ */
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;min-width:0}
 #topbar{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);gap:10px;flex-shrink:0;min-width:0}
 .topbar-toggle{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:var(--muted);transition:background var(--trans);flex-shrink:0}
@@ -90,7 +93,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .topbar-icon{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:var(--muted);font-size:16px;transition:background var(--trans),color var(--trans);flex-shrink:0}
 .topbar-icon:hover{background:var(--surface);color:var(--text)}
 
-/* ─── MESSAGES ─── */
+/* âââ MESSAGES âââ */
 #msgs-wrap{flex:1;overflow-y:auto;overflow-x:hidden;padding:24px 0 8px}
 #msgs-wrap::-webkit-scrollbar{width:5px}
 #msgs-wrap::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:3px}
@@ -131,7 +134,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .file-chip-inline{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.1);border-radius:8px;padding:4px 8px;font-size:12px}
 .file-chip-inline img{width:40px;height:40px;object-fit:cover;border-radius:6px}
 
-/* ─── COMPOSER ─── */
+/* âââ COMPOSER âââ */
 #composer-outer{flex-shrink:0;width:100%;padding:0 0 env(safe-area-inset-bottom,0)}
 #composer-wrap{padding:12px 16px 16px;max-width:780px;width:100%;margin:0 auto}
 #file-chips-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;min-height:0}
@@ -155,7 +158,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .file-chip-rm{color:var(--muted);font-size:14px;flex-shrink:0;padding:0 2px}
 .file-chip-rm:hover{color:var(--danger)}
 
-/* ─── SKILLS TRAY ─── */
+/* âââ SKILLS TRAY âââ */
 #skills-tray{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);width:min(680px,calc(100% - 32px));background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;z-index:200;box-shadow:0 12px 32px rgba(0,0,0,0.5);display:none}
 #skills-tray.open{display:block}
 .skills-tray-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -183,7 +186,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .btn-del-skill{padding:9px;background:rgba(224,82,82,0.15);color:var(--danger);border-radius:8px;font-size:13px;font-weight:600;border:1px solid rgba(224,82,82,0.3);transition:opacity var(--trans)}
 .btn-del-skill:hover{opacity:0.8}
 
-/* ─── MODALS ─── */
+/* âââ MODALS âââ */
 #inst-modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;display:none;align-items:center;justify-content:center}
 #inst-modal.open{display:flex}
 .inst-box{background:var(--panel);border-radius:14px;padding:22px;width:min(500px,90vw);display:flex;flex-direction:column;gap:12px;border:1px solid var(--border)}
@@ -196,11 +199,11 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .btn-primary{padding:8px 16px;background:var(--accent);color:#fff;border-radius:8px;font-size:13px;font-weight:600;transition:opacity var(--trans)}
 .btn-primary:hover{opacity:0.88}
 
-/* ─── OVERLAY ─── */
+/* âââ OVERLAY âââ */
 #sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);transition:opacity 0.2s ease}
 #sb-overlay.visible{display:block}
 
-/* ─── RESPONSIVE ─── */
+/* âââ RESPONSIVE âââ */
 @media(max-width:600px){
   #sidebar{position:fixed;left:0;top:0;height:100%;z-index:100;width:82vw;max-width:300px;min-width:0;transform:translateX(-105%);transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);border-right:1px solid var(--border)}
   #sidebar.open{transform:translateX(0)}
@@ -263,7 +266,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   #composer-wrap{max-width:1000px}
 }
 
-/* ─── EXPORT TOOLBAR ─── */
+/* âââ EXPORT TOOLBAR âââ */
 .export-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;padding:8px 10px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)}
 .export-label{font-size:11px;color:var(--muted);white-space:nowrap;margin-right:2px}
 .export-btn{display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text);cursor:pointer;transition:background var(--trans),border-color var(--trans);white-space:nowrap}
@@ -287,8 +290,8 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   </div>
   <!-- Tabs: Chats | Graphify -->
   <div class="sb-tabs">
-    <button class="sb-tab active" id="tab-chats" onclick="switchSbTab('chats')">💬 Chats</button>
-    <button class="sb-tab" id="tab-graphify" onclick="switchSbTab('graphify')">📊 Graphify</button>
+    <button class="sb-tab active" id="tab-chats" onclick="switchSbTab('chats')">ð¬ Chats</button>
+    <button class="sb-tab" id="tab-graphify" onclick="switchSbTab('graphify')">ð Graphify</button>
   </div>
   <!-- Chat list -->
   <div class="chat-list" id="chat-list"></div>
@@ -344,10 +347,10 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   <div style="max-width:780px;width:100%;margin:0 auto;position:relative">
     <div id="skills-tray">
       <div class="skills-tray-header">
-        <span class="skills-tray-title">✶ Skills</span>
+        <span class="skills-tray-title">â¶ Skills</span>
         <div style="display:flex;gap:8px;align-items:center">
           <button class="btn-add-skill" onclick="openSkillPanel(null)">+ New Skill</button>
-          <button class="topbar-icon" onclick="closeTray()" style="width:26px;height:26px">✕</button>
+          <button class="topbar-icon" onclick="closeTray()" style="width:26px;height:26px">â</button>
         </div>
       </div>
       <div class="skills-grid" id="skills-grid"></div>
@@ -366,7 +369,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
           <button class="compose-btn" onclick="document.getElementById('file-input').click()" title="Attach file">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
           </button>
-          <button class="compose-btn" id="sparkle-btn" onclick="toggleTray()" title="Skills">✶</button>
+          <button class="compose-btn" id="sparkle-btn" onclick="toggleTray()" title="Skills">â¶</button>
           <input type="file" id="file-input" style="display:none" multiple accept="image/*,.pdf,.txt,.md" onchange="handleFiles(this.files)">
           <span class="compose-spacer"></span>
           <span class="token-hint" id="token-hint">0 est. tokens</span>
@@ -383,9 +386,9 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 <div id="skill-panel">
   <div style="display:flex;justify-content:space-between;align-items:center">
     <span class="sp-title" id="sp-title">New Skill</span>
-    <button class="topbar-icon" onclick="closeSkillPanel()">✕</button>
+    <button class="topbar-icon" onclick="closeSkillPanel()">â</button>
   </div>
-  <div><div class="sp-label">Icon (emoji)</div><input class="sp-input" id="sp-icon" placeholder="💡" maxlength="4"></div>
+  <div><div class="sp-label">Icon (emoji)</div><input class="sp-input" id="sp-icon" placeholder="ð¡" maxlength="4"></div>
   <div><div class="sp-label">Name</div><input class="sp-input" id="sp-name" placeholder="Skill name"></div>
   <div><div class="sp-label">Description</div><input class="sp-input" id="sp-desc" placeholder="Short description"></div>
   <div><div class="sp-label">System Prompt</div><textarea class="sp-input sp-textarea" id="sp-prompt" placeholder="Instructions for the AI..."></textarea></div>
@@ -396,7 +399,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 <!-- INST MODAL -->
 <div id="inst-modal">
   <div class="inst-box">
-    <div class="inst-title">⚙️ System Instructions</div>
+    <div class="inst-title">âï¸ System Instructions</div>
     <p style="font-size:13px;color:var(--muted)">Set a persistent system prompt for this chat.</p>
     <textarea class="inst-textarea" id="inst-ta" placeholder="You are a helpful assistant..."></textarea>
     <div class="inst-btns">
@@ -408,13 +411,13 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 
 <!-- CONTEXT MENU -->
 <div class="ctx-menu" id="ctx-menu" style="display:none">
-  <button onclick="ctxRename()">✏️ Rename</button>
-  <button onclick="ctxStar()">☆ Star / Unstar</button>
-  <button class="danger" onclick="ctxDelete()">🗑 Delete</button>
+  <button onclick="ctxRename()">âï¸ Rename</button>
+  <button onclick="ctxStar()">â Star / Unstar</button>
+  <button class="danger" onclick="ctxDelete()">ð Delete</button>
 </div><script>
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // CONFIG
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 const AZURE_BASE = "https://ai-praveenmishraai8491456994967768.services.ai.azure.com";
 const AZURE_KEY  = "Fq04ZUOnjv0YpY39JUp9YZ922aZqTpc7glsIpbBl2Ki11ZIAmb0qJQQJ99CEACYeBjFXJ3w3AAAAACOGQ9Nb";
 const API_VER    = "2024-05-01-preview";
@@ -425,9 +428,9 @@ const LS_LAST    = "ooumph_last_chat";
 const MAX_CONTEXT_MSGS   = 20;
 const STREAM_RENDER_INTERVAL = 40;
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // STATE
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 const S = {
   chats:[], current:null, model:MODELS[0],
   skills:[], activeSkills:new Set(), pendingFiles:[],
@@ -435,9 +438,9 @@ const S = {
   sbTab:"chats",
 };
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // HELPERS
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 const $  = id => document.getElementById(id);
 const genId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -461,9 +464,9 @@ function formatTime(ts) {
   return d.toLocaleDateString();
 }
 
-// ═══════════════════════════════════════════════════
-// PERSISTENCE — save immediately + on page unload
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
+// PERSISTENCE â save immediately + on page unload
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function saveChats() {
   try { localStorage.setItem(LS_CHATS, JSON.stringify(S.chats)); } catch(e){}
 }
@@ -485,10 +488,10 @@ function loadSkillsLS() {
   try { S.skills = JSON.parse(localStorage.getItem(LS_SKILLS)||"null"); } catch(e){}
   if (!S.skills || !S.skills.length) {
     S.skills = [
-      {id:genId(),name:"Code Expert",icon:"💻",description:"Writes clean, efficient code",prompt:"You are an expert software engineer. Write clean, efficient, well-commented code. Always explain your approach and suggest improvements."},
-      {id:genId(),name:"Concise Mode",icon:"⚡",description:"Short, direct answers only",prompt:"Be extremely concise. Give direct answers without preamble. Use bullet points. Max 3 sentences unless code is required."},
-      {id:genId(),name:"Document Analyst",icon:"📄",description:"Analyses and summarises documents",prompt:"You are a document analysis expert. Extract key information, identify main themes, summarise clearly and highlight important points."},
-      {id:genId(),name:"Creative Writer",icon:"✍️",description:"Creative storytelling and writing",prompt:"You are a creative writing assistant. Write vivid, engaging content with strong narrative voice."},
+      {id:genId(),name:"Code Expert",icon:"ð»",description:"Writes clean, efficient code",prompt:"You are an expert software engineer. Write clean, efficient, well-commented code. Always explain your approach and suggest improvements."},
+      {id:genId(),name:"Concise Mode",icon:"â¡",description:"Short, direct answers only",prompt:"Be extremely concise. Give direct answers without preamble. Use bullet points. Max 3 sentences unless code is required."},
+      {id:genId(),name:"Document Analyst",icon:"ð",description:"Analyses and summarises documents",prompt:"You are a document analysis expert. Extract key information, identify main themes, summarise clearly and highlight important points."},
+      {id:genId(),name:"Creative Writer",icon:"âï¸",description:"Creative storytelling and writing",prompt:"You are a creative writing assistant. Write vivid, engaging content with strong narrative voice."},
     ];
     saveSkills();
   }
@@ -496,9 +499,9 @@ function loadSkillsLS() {
 // Ensure chats are saved before unload
 window.addEventListener("beforeunload", () => { saveChats(); });
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // TOKENS
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function countAllTokens() {
   if (!S.current) return {p:0,c:0};
   let p=0,c=0;
@@ -516,9 +519,9 @@ function updateTokens() {
   $("token-hint").textContent=est.toLocaleString()+" est. tokens";
 }
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // SIDEBAR TABS
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function switchSbTab(tab) {
   S.sbTab = tab;
   $("tab-chats").classList.toggle("active", tab==="chats");
@@ -529,9 +532,9 @@ function switchSbTab(tab) {
   else gp.classList.remove("visible");
 }
 
-// ═══════════════════════════════════════════════════
-// GRAPHIFY — interactive chat session graph
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
+// GRAPHIFY â interactive chat session graph
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 let __gfAnim = null;
 function renderGraphify() {
   const canvas = $("graphify-canvas");
@@ -550,7 +553,7 @@ function renderGraphify() {
     ctx.fillStyle = "#8a8a8a";
     ctx.font = "13px system-ui";
     ctx.textAlign = "center";
-    ctx.fillText("No chats yet — start a new chat!", W/2, H/2);
+    ctx.fillText("No chats yet â start a new chat!", W/2, H/2);
     return;
   }
 
@@ -640,7 +643,7 @@ function renderGraphify() {
         ctx.fillStyle = "gold";
         ctx.font = "8px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText("★", n.x, n.y - n.r - 2);
+        ctx.fillText("â", n.x, n.y - n.r - 2);
       }
       // label
       const title = (n.chat.title||"Chat").slice(0,18);
@@ -681,7 +684,7 @@ function renderGraphify() {
         $("ginfo-title").textContent = n.chat.title||"Untitled Chat";
         const msgs=(n.chat.messages||[]).filter(m=>m.role!=="system");
         $("ginfo-meta").innerHTML =
-          "Model: "+esc(n.chat.model||"—")+"<br>"+
+          "Model: "+esc(n.chat.model||"â")+"<br>"+
           "Messages: "+msgs.length+"<br>"+
           "Created: "+new Date(n.chat.createdAt||0).toLocaleString()+"<br>"+
           "Updated: "+new Date(n.chat.updatedAt||0).toLocaleString();
@@ -693,9 +696,9 @@ function renderGraphify() {
   };
 }
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // CHAT LIST
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function groupByDate(chats) {
   const n=new Date(), t=new Date(n.getFullYear(),n.getMonth(),n.getDate());
   const y=new Date(t-86400000), w=new Date(t-7*86400000);
@@ -720,11 +723,11 @@ function renderChatList() {
       const act=S.current?.id===c.id?"active":"";
       const mdl=(c.model||"").split("-")[0]||"AI";
       const star=c.starred?"on":"";
-      s+='<div class="chat-item '+act+'" data-id="'+c.id+'"><div class="chat-item-inner" onclick="openChat(''+c.id+'')" oncontextmenu="showCtx(event,''+c.id+'')"><span class="chat-item-title">'+esc(c.title||"New Chat")+'</span><span class="chat-item-meta"><span class="chat-model-tag">'+esc(mdl)+'</span><button class="star-btn '+star+'" onclick="event.stopPropagation();toggleStar(''+c.id+'')" title="Star">★</button></span></div></div>';
+      s+='<div class="chat-item '+act+'" data-id="'+c.id+'"><div class="chat-item-inner" onclick="openChat(''+c.id+'')" oncontextmenu="showCtx(event,''+c.id+'')"><span class="chat-item-title">'+esc(c.title||"New Chat")+'</span><span class="chat-item-meta"><span class="chat-model-tag">'+esc(mdl)+'</span><button class="star-btn '+star+'" onclick="event.stopPropagation();toggleStar(''+c.id+'')" title="Star">â</button><button class="del-btn" onclick="event.stopPropagation();quickDeleteChat(''+ c.id +'')" title="Delete">ð</button></span></div></div>';
     });
     return s;
   };
-  html+=sec("★ Starred",g.starred);
+  html+=sec("â Starred",g.starred);
   html+=sec("Today",g.today);
   html+=sec("Yesterday",g.yesterday);
   html+=sec("Last 7 days",g.week);
@@ -732,9 +735,9 @@ function renderChatList() {
   if(!html) html='<div style="padding:20px;text-align:center;font-size:13px;color:var(--muted)">'+(q?"No results":"No chats yet")+'</div>';
   el.innerHTML=html;
 }
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // OPEN CHAT
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function openChat(id) {
   const c=S.chats.find(x=>x.id===id); if(!c) return;
   S.current=c; S.model=c.model||S.model;
@@ -745,9 +748,9 @@ function openChat(id) {
   if(window.innerWidth<=768) toggleSidebar(false);
 }
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // RENDER MESSAGES
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function renderMsgs() {
   const wrap=$("messages"), es=$("empty-state");
   if(!S.current||!S.current.messages||S.current.messages.length===0){
@@ -769,7 +772,7 @@ function mkMsgEl(m) {
       let chips='<div class="file-chips-inline">';
       m.files.forEach(f=>{
         if(f.dataUrl&&f.type&&f.type.startsWith("image/")) chips+='<div class="file-chip-inline"><img src="'+f.dataUrl+'" alt="'+esc(f.name)+'"><span>'+esc(f.name)+"</span></div>";
-        else chips+='<div class="file-chip-inline"><span>📄</span><span>'+esc(f.name)+"</span></div>";
+        else chips+='<div class="file-chip-inline"><span>ð</span><span>'+esc(f.name)+"</span></div>";
       });
       contentHtml+=chips+"</div>";
     }
@@ -789,18 +792,18 @@ function scrollBottom(smooth=true) {
   const w=$("msgs-wrap"); if(w) w.scrollTo({top:w.scrollHeight,behavior:smooth?"smooth":"auto"});
 }
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // NEW CHAT
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function newChat() {
   S.current=null; S.activeSkills.clear(); S.pendingFiles=[]; S.tokens={p:0,c:0};
   renderChips(); updateSend(); updateTokens(); renderMsgs(); renderChatList();
   $("topbar-title").textContent="Ooumph AI Chat"; $("input").value=""; autoResize($("input")); $("input").focus();
 }
 
-// ═══════════════════════════════════════════════════
-// SEND — FIXED: Enter key properly sends, no scroll jump
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
+// SEND â FIXED: Enter key properly sends, no scroll jump
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 async function send() {
   const inp=$("input"); const text=inp.value.trim();
   if((!text&&!S.pendingFiles.length)||S.streaming) return;
@@ -858,7 +861,7 @@ async function send() {
     }
     if(renderTimer){clearTimeout(renderTimer);renderTimer=null;}
   } catch(e){
-    aMsg.content="⚠️ "+e.message;
+    aMsg.content="â ï¸ "+e.message;
   } finally {
     aMsg.streaming=false;
     cEl.className="msg-bubble";
@@ -904,9 +907,9 @@ function buildApiMessages(filesSnap) {
   }
   return msgs;
 }
-// ═══════════════════════════════════════════════════
-// UI HELPERS — FIXED onKey: stopPropagation + prevent default
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
+// UI HELPERS â FIXED onKey: stopPropagation + prevent default
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function updateSend() {
   const inp=$("input"); const btn=$("send-btn");
   btn.disabled=(!(inp?.value.trim())&&!S.pendingFiles.length)||S.streaming;
@@ -931,12 +934,13 @@ function onKey(e) {
     e.preventDefault();
     e.stopPropagation();
     if(!S.streaming) send();
+    return false;
   }
 }
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // MODEL PICKER
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function setModelPill(m) {
   S.model=m; $("model-label").textContent=m.split("-")[0];
   if(S.current){S.current.model=m;saveChats();}
@@ -950,9 +954,9 @@ document.addEventListener("click",e=>{
   if(!e.target.closest("#ctx-menu")&&!e.target.closest(".chat-item")) hideCtx();
 });
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // SIDEBAR
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function toggleSidebar(force) {
   const sb=$("sidebar"); const isMobile=window.innerWidth<=768;
   if(isMobile){
@@ -969,15 +973,15 @@ function toggleSidebar(force) {
 function showSbOverlay(){$("sb-overlay")?.classList.add("visible");}
 function hideSbOverlay(){$("sb-overlay")?.classList.remove("visible");}
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // SKILLS
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function renderSkillsGrid() {
   const el=$("skills-grid"); if(!el) return;
   el.innerHTML=S.skills.map(sk=>{
     const act=S.activeSkills.has(sk.id)?"active":"";
     return '<div class="skill-card '+act+'" onclick="toggleSkill(''+sk.id+'')">'+
-      '<div class="sk-icon">'+(sk.icon||"💡")+"</div>"+
+      '<div class="sk-icon">'+(sk.icon||"ð¡")+"</div>"+
       '<div class="sk-name">'+esc(sk.name)+"</div>"+
       '<div class="sk-desc">'+esc(sk.description||"")+"</div>"+
       '<button style="margin-top:6px;font-size:11px;opacity:0.6;text-decoration:underline" onclick="event.stopPropagation();openSkillPanel(''+sk.id+'')">Edit</button>'+
@@ -1003,7 +1007,7 @@ function closeSkillPanel(){$("skill-panel").classList.remove("open");}
 function saveSkillPanel(){
   const name=$("sp-name").value.trim(); const prompt=$("sp-prompt").value.trim();
   if(!name||!prompt){alert("Name and prompt required.");return;}
-  const payload={name,icon:$("sp-icon").value.trim()||"💡",description:$("sp-desc").value.trim(),prompt};
+  const payload={name,icon:$("sp-icon").value.trim()||"ð¡",description:$("sp-desc").value.trim(),prompt};
   if(_editSkillId){const i=S.skills.findIndex(s=>s.id===_editSkillId);if(i>=0) S.skills[i]={...S.skills[i],...payload};}
   else S.skills.push({id:genId(),...payload});
   saveSkills(); renderSkillsGrid(); closeSkillPanel();
@@ -1014,9 +1018,9 @@ function deleteSkillPanel(){
   saveSkills(); renderSkillsGrid(); closeSkillPanel();
 }
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // FILES
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function handleFiles(files){Array.from(files).forEach(addFile);$("file-input").value="";}
 function addFile(file){
   if(S.pendingFiles.length>=5){alert("Max 5 files");return;}
@@ -1031,18 +1035,18 @@ function removeFile(i){S.pendingFiles.splice(i,1);renderChips();updateSend();}
 function renderChips(){
   const bar=$("file-chips-bar");
   bar.innerHTML=S.pendingFiles.map((f,i)=>{
-    const thumb=f.dataUrl?'<img src="'+f.dataUrl+'" alt="">':"<span class='file-chip-icon'>"+(f.type==="application/pdf"?"📄":"📝")+"</span>";
+    const thumb=f.dataUrl?'<img src="'+f.dataUrl+'" alt="">':"<span class='file-chip-icon'>"+(f.type==="application/pdf"?"ð":"ð")+"</span>";
     const sz=f.size<1024?f.size+"B":f.size<1048576?(f.size/1024).toFixed(1)+"KB":(f.size/1048576).toFixed(1)+"MB";
-    return '<div class="file-chip">'+thumb+'<span class="file-chip-name" title="'+esc(f.name)+'">'+esc(f.name)+'</span><span style="font-size:10px;color:var(--muted)">'+sz+'</span><button class="file-chip-rm" onclick="removeFile('+i+')">✕</button></div>';
+    return '<div class="file-chip">'+thumb+'<span class="file-chip-name" title="'+esc(f.name)+'">'+esc(f.name)+'</span><span style="font-size:10px;color:var(--muted)">'+sz+'</span><button class="file-chip-rm" onclick="removeFile('+i+')">â</button></div>';
   }).join("");
 }
 function onDragOver(e){e.preventDefault();$("composer").style.borderColor="var(--accent)";}
 function onDragLeave(){$("composer").style.borderColor="";}
 function onDrop(e){e.preventDefault();onDragLeave();handleFiles(e.dataTransfer.files);}
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // SYSTEM INSTRUCTIONS
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function openInstModal(){$("inst-ta").value=S.current?.instructions||"";$("inst-modal").classList.add("open");}
 function closeInstModal(){$("inst-modal").classList.remove("open");}
 function saveInst(){
@@ -1053,9 +1057,9 @@ function saveInst(){
   S.current.instructions=$("inst-ta").value.trim();saveChats();closeInstModal();
 }
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // CONTEXT MENU
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function showCtx(e,id){
   e.preventDefault();S.ctxId=id;const m=$("ctx-menu");
   m.style.display="block";m.style.left=Math.min(e.clientX,window.innerWidth-160)+"px";
@@ -1070,6 +1074,12 @@ function ctxRename(){
 }
 function ctxStar(){toggleStar(S.ctxId);hideCtx();}
 function toggleStar(id){const c=S.chats.find(x=>x.id===id);if(!c) return;c.starred=!c.starred;saveChats();renderChatList();}
+function quickDeleteChat(id){
+  if(!confirm("Delete this chat?")) return;
+  S.chats=S.chats.filter(c=>c.id!==id);
+  if(S.current?.id===id){S.current=null;renderMsgs();$('topbar-title').textContent="Ooumph AI Chat";}
+  saveChats();renderChatList();
+}
 function ctxDelete(){
   if(!confirm("Delete this chat?")) return hideCtx();
   S.chats=S.chats.filter(c=>c.id!==S.ctxId);
@@ -1077,24 +1087,24 @@ function ctxDelete(){
   saveChats();renderChatList();hideCtx();
 }
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // HELP
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function showHelp(){
   alert("Ooumph AI Chat
 
 Streaming: Live word-by-word output
 Enter = Send, Shift+Enter = Newline
 Memory: Last "+MAX_CONTEXT_MSGS+" messages sent
-Skills: click ✶ for skill presets
-Files: attach images/text/PDF via 📎
+Skills: click â¶ for skill presets
+Files: attach images/text/PDF via ð
 Graphify: visual session timeline in sidebar
 Right-click a chat to rename, star, or delete
 Chats auto-saved to browser storage");
 }
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // INIT
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function init() {
   loadChatsLS(); loadSkillsLS();
   $("model-drop").innerHTML=MODELS.map(m=>'<div class="model-opt '+(m===S.model?"active":"")+'" onclick="setModelPill(''+m+'');toggleModelDrop()">'+esc(m)+"</div>").join("");
@@ -1113,9 +1123,9 @@ window.addEventListener("resize",()=>{
   if(S.sbTab==="graphify") renderGraphify();
 });
 
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 // EXPORT SYSTEM
-// ═══════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââ
 const EXPORT_KEYWORDS={
   pdf:/(pdf|portable document)/i,png:/(png|image|screenshot|picture|photo|graphic)/i,
   jpeg:/(jpg|jpeg)/i,docx:/(docx|word document|ms word|word file)/i,
@@ -1134,12 +1144,12 @@ function checkAndAddExportButtons(aMsg,cEl){
   if(!aMsg.content||aMsg.content.length<30) return;
   const fmt=detectRequestedFormat();
   const icons={pdf:"PDF",png:"PNG",jpeg:"JPEG",docx:"DOCX",txt:"TXT",csv:"CSV",md:"MD",html:"HTML",svg:"SVG"};
-  const emojs={pdf:"📄",png:"🖼️",jpeg:"🖼️",docx:"📝",txt:"📋",csv:"📊",md:"⬇️",html:"🌐",svg:"🎨"};
+  const emojs={pdf:"ð",png:"ð¼ï¸",jpeg:"ð¼ï¸",docx:"ð",txt:"ð",csv:"ð",md:"â¬ï¸",html:"ð",svg:"ð¨"};
   const primary=fmt?[fmt,"txt","md"]:["txt","md","pdf"];
   const shown=[...new Set(primary)];
   const extra=Object.keys(icons).filter(f=>!shown.includes(f));
   const toolbar=document.createElement("div"); toolbar.className="export-toolbar";
-  toolbar.innerHTML='<span class="export-label">💾 Save as:</span>'+
+  toolbar.innerHTML='<span class="export-label">ð¾ Save as:</span>'+
     shown.map(f=>'<button class="export-btn" onclick="doExport(''+aMsg.id+'',''+f+'')">'+emojs[f]+" "+icons[f]+"</button>").join("")+
     '<button class="export-btn export-more-btn" onclick="toggleMoreExports(this,''+aMsg.id+'')">&#9662; More</button>'+
     '<div class="export-more-list" style="display:none">'+
@@ -1149,7 +1159,7 @@ function checkAndAddExportButtons(aMsg,cEl){
 function toggleMoreExports(btn,id){
   const list=btn.nextElementSibling;if(!list) return;
   const isOpen=list.style.display==="flex";
-  list.style.display=isOpen?"none":"flex";btn.textContent=isOpen?"▾ More":"▴ Less";
+  list.style.display=isOpen?"none":"flex";btn.textContent=isOpen?"â¾ More":"â´ Less";
 }
 function getMsgContent(msgId){
   if(!S.current) return "";
@@ -1191,7 +1201,7 @@ function exportHtml(content,fname){
 </head>
 <body>
 <h1>'+esc(t)+'</h1>
-<p style="color:#888;font-size:13px">Exported · '+new Date().toLocaleString()+'</p>
+<p style="color:#888;font-size:13px">Exported Â· '+new Date().toLocaleString()+'</p>
 '+marked.parse(content)+'
 </body>
 </html>';
@@ -1228,7 +1238,7 @@ async function exportPdf(content,fname){
   const margin=15;const usableW=pageW-margin*2;let y=margin;
   const title=(S.current&&S.current.title)?S.current.title:"Ooumph AI Chat";
   doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(40,40,40);doc.text(title,margin,y);y+=8;
-  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(130,130,130);doc.text("Exported · "+new Date().toLocaleString(),margin,y);y+=8;
+  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(130,130,130);doc.text("Exported Â· "+new Date().toLocaleString(),margin,y);y+=8;
   doc.setDrawColor(200,200,200);doc.line(margin,y,pageW-margin,y);y+=6;
   doc.setFontSize(11);doc.setFont("helvetica","normal");doc.setTextColor(40,40,40);
   const lines=content.split("
@@ -1238,7 +1248,7 @@ async function exportPdf(content,fname){
     const h1=line.match(/^# (.+)/);const h2=line.match(/^## (.+)/);
     if(h1){doc.setFontSize(15);doc.setFont("helvetica","bold");const w=doc.splitTextToSize(h1[1],usableW);if(y+w.length*7>pageH-margin){doc.addPage();y=margin;}doc.text(w,margin,y);y+=w.length*7+3;doc.setFontSize(11);doc.setFont("helvetica","normal");}
     else if(h2){doc.setFontSize(13);doc.setFont("helvetica","bold");const w=doc.splitTextToSize(h2[1],usableW);if(y+w.length*6>pageH-margin){doc.addPage();y=margin;}doc.text(w,margin,y);y+=w.length*6+3;doc.setFontSize(11);doc.setFont("helvetica","normal");}
-    else{const clean=line.replace(/**(.+?)**/g,"$1").replace(/*(.+?)*/g,"$1").replace(/`(.+?)`/g,"$1").replace(/^[-*] /,"• ");const w=doc.splitTextToSize(clean,usableW);if(y+w.length*5>pageH-margin){doc.addPage();y=margin;}doc.text(w,margin,y);y+=w.length*5+1;}
+    else{const clean=line.replace(/**(.+?)**/g,"$1").replace(/*(.+?)*/g,"$1").replace(/`(.+?)`/g,"$1").replace(/^[-*] /,"â¢ ");const w=doc.splitTextToSize(clean,usableW);if(y+w.length*5>pageH-margin){doc.addPage();y=margin;}doc.text(w,margin,y);y+=w.length*5+1;}
   }
   const pc=doc.internal.getNumberOfPages();for(let p=1;p<=pc;p++){doc.setPage(p);doc.setFontSize(8);doc.setTextColor(160,160,160);doc.text(p+" / "+pc,pageW/2,pageH-8,{align:"center"});}
   doc.save(fname+".pdf");
@@ -1256,7 +1266,7 @@ async function exportDocx(content,fname){
   const{Document,Packer,Paragraph,TextRun,HeadingLevel}=window.docx;
   const children=[];const t=(S.current&&S.current.title)?S.current.title:"Ooumph AI Chat";
   children.push(new Paragraph({text:t,heading:HeadingLevel.TITLE}));
-  children.push(new Paragraph({children:[new TextRun({text:"Exported · "+new Date().toLocaleString(),color:"888888",size:18})]}));
+  children.push(new Paragraph({children:[new TextRun({text:"Exported Â· "+new Date().toLocaleString(),color:"888888",size:18})]}));
   children.push(new Paragraph({text:""}));
   const lines=content.split("
 ");
