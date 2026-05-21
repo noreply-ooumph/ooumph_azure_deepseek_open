@@ -187,9 +187,9 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .btn-del-skill:hover{opacity:0.8}
 
 /* ─── MODALS ─── */
-#inst-modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;display:none;align-items:center;justify-content:center}
 #gh-modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;display:none;align-items:center;justify-content:center}
 #gh-modal.open{display:flex}
+#inst-modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;display:none;align-items:center;justify-content:center}
 #inst-modal.open{display:flex}
 .inst-box{background:var(--panel);border-radius:14px;padding:22px;width:min(500px,90vw);display:flex;flex-direction:column;gap:12px;border:1px solid var(--border)}
 .inst-title{font-size:15px;font-weight:700}
@@ -327,7 +327,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
       <div class="model-dropdown" id="model-drop"></div>
     </div>
     <span class="tokens-badge" id="tokens-badge">0 tokens</span>
-    <button class="topbar-icon" onclick="openGhModal()" title="GitHub Sync">🔗</button>
+    <button class="topbar-icon" onclick="openGhModal()" title="GitHub Gist Sync" style="font-size:11px;font-weight:bold">GH</button>
     <button class="topbar-icon" onclick="openInstModal()" title="System instructions">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
     </button>
@@ -414,12 +414,12 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 
 <div id="gh-modal">
   <div class="inst-box">
-    <div class="inst-title">🔗 GitHub Gist Sync</div>
-    <div style="font-size:12px;color:var(--muted);margin:8px 0 12px">Enter your GitHub Personal Access Token (with <b>gist</b> scope) to sync chats across devices.</div>
-    <label style="font-size:12px;font-weight:600;color:var(--muted)">GitHub PAT (gist scope)</label>
-    <input type="password" id="gh-pat-input" class="inst-textarea" style="height:36px;padding:6px 10px;margin:4px 0 12px" placeholder="ghp_xxxxxxxxxxxx...">
-    <label style="font-size:12px;font-weight:600;color:var(--muted)">Gist ID (leave blank to auto-create)</label>
-    <input type="text" id="gh-gist-input" class="inst-textarea" style="height:36px;padding:6px 10px;margin:4px 0 12px" placeholder="e.g. a1b2c3d4e5...">
+    <div class="inst-title">GitHub Gist Sync</div>
+    <div style="font-size:12px;color:var(--muted);margin:6px 0 10px">Sync chats via GitHub Gist. Create a Gist, paste your GitHub PAT (gist scope) and Gist ID.</div>
+    <label style="font-size:12px;font-weight:600;color:var(--muted)">GitHub PAT</label>
+    <input type="password" id="gh-pat-input" class="inst-textarea" style="height:34px;padding:6px 10px;margin:4px 0 10px" placeholder="ghp_...">
+    <label style="font-size:12px;font-weight:600;color:var(--muted)">Gist ID (blank to auto-create)</label>
+    <input type="text" id="gh-gist-input" class="inst-textarea" style="height:34px;padding:6px 10px;margin:4px 0 10px" placeholder="a1b2c3d4...">
     <div class="inst-btns">
       <button class="btn-ghost" onclick="closeGhModal()">Cancel</button>
       <button class="btn-primary" onclick="saveGhSettings()">Save &amp; Sync</button>
@@ -488,34 +488,45 @@ function formatTime(ts) {
 // PERSISTENCE — save immediately + on page unload
 // ═══════════════════════════════════════════════════
 function saveChats() {
-  try { const _d=JSON.stringify(S.chats); localStorage.setItem(LS_CHATS, _d); localStorage.setItem(LS_LAST, S.current?.id||""); saveToGist(_d); } catch(e){}
+  try { var _sd=JSON.stringify(S.chats); localStorage.setItem(LS_CHATS,_sd); localStorage.setItem(LS_LAST,S.current?S.current.id:""); saveToGist(_sd); } catch(e){}
 }
-// === GITHUB GIST STORAGE ===
-async function saveToGist(chatsData) {
+// === GITHUB GIST SYNC ===
+async function saveToGist(d) {
   try {
-    const pat = localStorage.getItem(LS_GH_PAT);
+    var pat=localStorage.getItem(LS_GH_PAT);
     if(!pat) return;
-    let gistId = localStorage.getItem(LS_GH_GIST);
-    const body = JSON.stringify({ files: { "ooumph_chats.json": { content: chatsData } }, description: "Ooumph AI Chat History", public: false });
-    const headers = {"Authorization":"token "+pat,"Content-Type":"application/json"};
-    if(gistId) {
-      await fetch("https://api.github.com/gists/"+gistId, { method:"PATCH", headers, body });
-    } else {
-      const r = await fetch("https://api.github.com/gists", { method:"POST", headers, body });
-      if(r.ok){ const j=await r.json(); localStorage.setItem(LS_GH_GIST,j.id); }
-    }
-  } catch(e){ console.warn("Gist save failed",e); }
+    var gid=localStorage.getItem(LS_GH_GIST);
+    var body=JSON.stringify({files:{"ooumph_chats.json":{content:d}},description:"Ooumph AI Chats",public:false});
+    var hdrs={"Authorization":"token "+pat,"Content-Type":"application/json"};
+    var resp;
+    if(gid){resp=await fetch("https://api.github.com/gists/"+gid,{method:"PATCH",headers:hdrs,body:body});}
+    else{resp=await fetch("https://api.github.com/gists",{method:"POST",headers:hdrs,body:body});if(resp.ok){var jj=await resp.json();localStorage.setItem(LS_GH_GIST,jj.id);}}
+  } catch(e){console.warn("Gist save",e);}
 }
 async function loadFromGist() {
   try {
-    const pat = localStorage.getItem(LS_GH_PAT);
-    const gistId = localStorage.getItem(LS_GH_GIST);
-    if(!pat || !gistId) return null;
-    const r = await fetch("https://api.github.com/gists/"+gistId, { headers:{"Authorization":"token "+pat} });
-    if(!r.ok) return null;
-    const j = await r.json();
-    return j.files?.["ooumph_chats.json"]?.content || null;
-  } catch(e){ console.warn("Gist load failed",e); return null; }
+    var pat=localStorage.getItem(LS_GH_PAT);
+    var gid=localStorage.getItem(LS_GH_GIST);
+    if(!pat||!gid) return null;
+    var resp=await fetch("https://api.github.com/gists/"+gid,{headers:{"Authorization":"token "+pat}});
+    if(!resp.ok) return null;
+    var jj=await resp.json();
+    return (jj.files&&jj.files["ooumph_chats.json"]&&jj.files["ooumph_chats.json"].content)||null;
+  } catch(e){return null;}
+}
+function openGhModal() {
+  document.getElementById("gh-pat-input").value=localStorage.getItem(LS_GH_PAT)||"";
+  document.getElementById("gh-gist-input").value=localStorage.getItem(LS_GH_GIST)||"";
+  document.getElementById("gh-modal").classList.add("open");
+}
+function closeGhModal(){document.getElementById("gh-modal").classList.remove("open");}
+async function saveGhSettings() {
+  var pat=(document.getElementById("gh-pat-input").value||"").trim();
+  var gid=(document.getElementById("gh-gist-input").value||"").trim();
+  if(pat)localStorage.setItem(LS_GH_PAT,pat);else localStorage.removeItem(LS_GH_PAT);
+  if(gid)localStorage.setItem(LS_GH_GIST,gid);else localStorage.removeItem(LS_GH_GIST);
+  closeGhModal();
+  if(pat){var data=await loadFromGist();if(data){try{S.chats=JSON.parse(data);renderChatList();}catch(e){}}saveChats();alert("GitHub Gist Sync ready!");}
 }
 
 function loadChatsLS() {
@@ -1124,7 +1135,7 @@ function toggleStar(id){const c=S.chats.find(x=>x.id===id);if(!c) return;c.starr
 function quickDeleteChat(id){
   if(!confirm("Delete this chat?")) return;
   S.chats=S.chats.filter(c=>c.id!==id);
-  if(S.current?.id===id){S.current=null;renderMsgs();$('topbar-title').textContent="Ooumph AI Chat";}
+  if(S.current&&S.current.id===id){S.current=null;renderMsgs();$("topbar-title").textContent="Ooumph AI Chat";}
   saveChats();renderChatList();
 }
 function ctxDelete(){
@@ -1152,25 +1163,10 @@ Chats auto-saved to browser storage");
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
-function openGhModal() {
-  document.getElementById("gh-pat-input").value=localStorage.getItem(LS_GH_PAT)||"";
-  document.getElementById("gh-gist-input").value=localStorage.getItem(LS_GH_GIST)||"";
-  document.getElementById("gh-modal").classList.add("open");
-}
-function closeGhModal() { document.getElementById("gh-modal").classList.remove("open"); }
-async function saveGhSettings() {
-  const pat=(document.getElementById("gh-pat-input").value||"").trim();
-  const gistId=(document.getElementById("gh-gist-input").value||"").trim();
-  if(pat) localStorage.setItem(LS_GH_PAT,pat); else localStorage.removeItem(LS_GH_PAT);
-  if(gistId) localStorage.setItem(LS_GH_GIST,gistId); else localStorage.removeItem(LS_GH_GIST);
-  closeGhModal();
-  if(pat) { const data=await loadFromGist(); if(data){try{S.chats=JSON.parse(data);renderChatList();}catch(e){}} saveChats(); alert("GitHub Sync configured! Chats will sync to your Gist."); }
-}
 async function init() {
   loadChatsLS(); loadSkillsLS();
-  const _gd = await loadFromGist();
-  if(_gd){try{S.chats=JSON.parse(_gd);}catch(e){}}
-  renderChatList();
+  var _gd=await loadFromGist();
+  if(_gd){try{S.chats=JSON.parse(_gd);}catch(e){}renderChatList();}
   $("model-drop").innerHTML=MODELS.map(m=>'<div class="model-opt '+(m===S.model?"active":"")+'" onclick="setModelPill('+m+');toggleModelDrop()">'+esc(m)+"</div>").join("");
   let resumed=false;
   try{const lastId=localStorage.getItem(LS_LAST);if(lastId){const c=S.chats.find(x=>x.id===lastId);if(c){openChat(c.id);resumed=true;}}}catch(e){}
