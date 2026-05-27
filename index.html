@@ -16,7 +16,7 @@
 --text:#ececec;--muted:#8a8a8a;--danger:#e05252;--trans:0.18s ease;
 }
 html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
-#app{display:flex;height:100vh;overflow:hidden}
+#app{display:flex;height:100vh;height:100dvh;overflow:hidden}
 button{cursor:pointer;border:none;background:none;color:inherit;font:inherit}
 input,textarea{font:inherit;color:inherit;background:none;border:none;outline:none}
 
@@ -94,7 +94,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .topbar-icon:hover{background:var(--surface);color:var(--text)}
 
 /* ─── MESSAGES ─── */
-#msgs-wrap{flex:1;overflow-y:auto;overflow-x:hidden;padding:24px 0 8px}
+#msgs-wrap{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:24px 0 8px}
 #msgs-wrap::-webkit-scrollbar{width:5px}
 #msgs-wrap::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:3px}
 #messages{max-width:780px;margin:0 auto;padding:0 16px;display:flex;flex-direction:column;gap:20px}
@@ -220,7 +220,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   #messages{padding:0 8px;gap:14px}
   .msg-body{max-width:88%}
   .msg-bubble{font-size:13px;padding:10px 13px;border-radius:14px}
-  #composer-wrap{padding:8px 8px 12px}
+  #composer-wrap{padding:8px 8px max(12px,env(safe-area-inset-bottom))}
   #composer{border-radius:12px;padding:10px 12px 8px}
   #input{font-size:13px}
   .compose-btn{width:28px;height:28px;font-size:14px}
@@ -357,6 +357,13 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 @supports(-webkit-touch-callout:none){
   #msgs-wrap{-webkit-overflow-scrolling:touch}
   #app{height:-webkit-fill-available}
+}
+/* Mobile viewport fix - ensures composer/input always visible */
+@media(max-width:768px){
+  #app{height:100dvh}
+  #msgs-wrap{min-height:0!important}
+  #composer-wrap{flex-shrink:0!important}
+  #main{min-height:0}
 }
 
 /* Reduce motion for accessibility */
@@ -941,7 +948,7 @@ function openChat(id) {
   updateTokens(); renderMsgs(); renderChatList();
   $("topbar-title").textContent=c.title||"Ooumph AI Chat";
   try { localStorage.setItem(LS_LAST,id); } catch(e){}
-  if(window.innerWidth<=768) toggleSidebar(false);
+  if(window.innerWidth<=768){ toggleSidebar(false); setTimeout(scrollBottom,300); }
 }
 
 // ═══════════════════════════════════════════════════
