@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>!function(){var v='20260527-4';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -1179,8 +1180,8 @@ function toggleSidebar(force) {
     sb.classList.toggle("collapsed");
   }
 }
-function showSbOverlay(){$("sb-overlay")?.classList.add("visible");document.getElementById("app")?.classList.add("sb-open");}
-function hideSbOverlay(){$("sb-overlay")?.classList.remove("visible");document.getElementById("app")?.classList.remove("sb-open");}
+function showSbOverlay(){$("sb-overlay")?.classList.add("visible");document.getElementById("app")?.classList.add("sb-open");if(window.innerWidth<=768){var s=$("sidebar");if(s){s.style.zIndex="9999";s.style.pointerEvents="all";}}}
+function hideSbOverlay(){$("sb-overlay")?.classList.remove("visible");document.getElementById("app")?.classList.remove("sb-open");if(window.innerWidth<=768){var s=$("sidebar");if(s){s.style.zIndex="";s.style.pointerEvents="";}}}
 
 // ═══════════════════════════════════════════════════
 // SKILLS
