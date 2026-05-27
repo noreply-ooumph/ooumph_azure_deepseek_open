@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260527-4';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260527-5';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -939,7 +939,7 @@ function renderChatList() {
       const act=S.current?.id===c.id?"active":"";
       const mdl=(c.model||"").split("-")[0]||"AI";
       const star=c.starred?"on":"";
-      s+='<div class="chat-item '+act+'" data-id="'+c.id+'"><div class="chat-item-inner" onclick="openChat('+c.id+')" oncontextmenu="showCtx(event,'+c.id+')"><span class="chat-item-title">'+esc(c.title||"New Chat")+'</span><span class="chat-item-meta"><span class="chat-model-tag">'+esc(mdl)+'</span><button class="star-btn '+star+'" onclick="event.stopPropagation();toggleStar('+c.id+')" title="Star">★</button><button class="del-btn" onclick="event.stopPropagation();quickDeleteChat('+c.id+')" title="Delete">×</button></span></div></div>';
+      s+='<div class="chat-item '+act+'" data-id="'+c.id+'"><div class="chat-item-inner" onclick="openChat('"+c.id+"')" oncontextmenu="showCtx(event,'"+ c.id +"')"><span class="chat-item-title">'+esc(c.title||"New Chat")+'</span><span class="chat-item-meta"><span class="chat-model-tag">'+esc(mdl)+'</span><button class="star-btn '+star+'" onclick="event.stopPropagation();toggleStar('"+ c.id +"')" title="Star">★</button><button class="del-btn" onclick="event.stopPropagation();quickDeleteChat('"+ c.id +"')" title="Delete">×</button></span></div></div>';
     });
     return s;
   };
@@ -1014,6 +1014,7 @@ function newChat() {
   S.current=null; S.activeSkills.clear(); S.pendingFiles=[]; S.tokens={p:0,c:0};
   renderChips(); updateSend(); updateTokens(); renderMsgs(); renderChatList();
   $("topbar-title").textContent="Ooumph AI Chat"; $("input").value=""; autoResize($("input")); $("input").focus();
+  if(window.innerWidth<=768){ toggleSidebar(false); }
 }
 
 // ═══════════════════════════════════════════════════
