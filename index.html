@@ -207,7 +207,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 
 /* ─── RESPONSIVE ─── */
 @media(max-width:600px){
-  #sidebar{position:fixed;left:0;top:0;height:100%;z-index:100;width:82vw;max-width:300px;min-width:0;transform:translateX(-105%);transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);border-right:1px solid var(--border)}
+  #sidebar{position:fixed;left:0;top:0;height:100%;z-index:1000;width:100vw;max-width:100vw;min-width:0;transform:translateX(-105%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);border-right:none}
   #sidebar.open{transform:translateX(0)}
   #sidebar.collapsed{transform:translateX(-105%)}
   .topbar-title{font-size:12px;max-width:100px}
@@ -235,7 +235,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   .msg-avatar{width:28px;height:28px;font-size:11px}
 }
 @media(min-width:601px) and (max-width:768px){
-  #sidebar{position:fixed;left:0;top:0;height:100%;z-index:100;width:260px;min-width:0;transform:translateX(-105%);transition:transform 0.25s cubic-bezier(0.4,0,0.2,1)}
+  #sidebar{position:fixed;left:0;top:0;height:100%;z-index:1000;width:100vw;max-width:100vw;min-width:0;transform:translateX(-105%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);border-right:none}
   #sidebar.open{transform:translateX(0)}
   #sidebar.collapsed{transform:translateX(-105%)}
   .topbar-title{font-size:13px}
@@ -412,7 +412,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 
 /* Sidebar overlay tap on mobile */
 @media(max-width:768px){
-  #sb-overlay{cursor:pointer;-webkit-tap-highlight-color:transparent}
+  #sb-overlay{display:none!important}
 }
 
 /* Context menu on small screens */
@@ -423,10 +423,9 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 /* Mobile sidebar close button */
 .sb-close-btn{display:none}
 @media(max-width:768px){
-  .sb-close-btn{display:flex;align-items:center;gap:8px;width:100%;padding:10px 14px 8px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;border:none;background:none}
-  .sb-close-btn svg{width:20px;height:20px;flex-shrink:0}
-  .sb-close-btn:active{opacity:0.7}
-  #app.sb-open #main{pointer-events:none;user-select:none}
+  .sb-close-btn{display:flex;align-items:center;gap:10px;width:100%;padding:14px 16px 10px;color:var(--text);font-size:15px;font-weight:700;cursor:pointer;border:none;background:none;border-bottom:1px solid var(--border)}
+  .sb-close-btn svg{width:22px;height:22px;flex-shrink:0;color:var(--accent)}
+  .sb-close-btn:active{background:var(--surface)}
 }
 </style>
 </head><body>
