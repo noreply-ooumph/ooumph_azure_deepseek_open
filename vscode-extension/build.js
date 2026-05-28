@@ -2,18 +2,19 @@
 /**
  * build.js  –  Ooumph AI Chat VS Code Extension setup script
  *
- * Run once after cloning:
+ * Run once after cloning (or after pulling updates):
  *   cd vscode-extension
  *   node build.js
  *
  * What it does:
  *  1. Downloads index.html from the live GitHub Pages site
- *  2. Strips the version-check snippet (not needed inside VS Code)
- *  3. Removes the hard-coded Azure credentials so they come from VS Code settings
- *  4. Writes the result to  media/chat.html
- *
- * After this, open the vscode-extension folder in VS Code and press F5
- * to launch the Extension Development Host.
+ *  2. Strips the version-check reload snippet (causes loops in webview)
+ *  3. Clears hard-coded Azure credentials (VS Code settings supply them)
+ *  4. Adds VS Code webview CSP meta tag
+ *  5. Adds "Attach File" button to the input toolbar
+ *  6. Adds "Apply to File" + "Copy" buttons after AI code blocks
+ *  7. Wires model dropdown to getConfig response
+ *  8. Writes the result to  media/chat.html
  */
 
 const https = require('https');
@@ -27,66 +28,75 @@ const OUT_FILE   = path.join(OUT_DIR, 'chat.html');
 console.log('\n🔨 Ooumph AI Chat Extension Builder');
 console.log('=====================================');
 
-// Ensure media/ folder exists
-if (!fs.existsSync(OUT_DIR)) {
-  fs.mkdirSync(OUT_DIR, {recursive: true});
-  console.log('Created media/ folder');
-}
+if (!fs.existsSync(OUT_DIR)) { fs.mkdirSync(OUT_DIR, {recursive: true}); console.log('Created media/'); }
 
-// Download the live web app
 console.log('Downloading ' + SOURCE_URL + ' ...');
 download(SOURCE_URL, (err, html) => {
-  if (err) {
-    console.error('ERROR downloading source:', err.message);
-    process.exit(1);
-  }
+  if (err) { console.error('ERROR downloading source:', err.message); process.exit(1); }
   console.log('Downloaded ' + html.length + ' bytes');
 
   // ── Patch 1: remove version-check reload snippet ──────
-  // (The _ov localStorage trick causes infinite reloads inside webview)
   html = html.replace(
     /<script>!function\(\)[^<]+_ov[^<]+<\/script>/,
     '<!-- version-check removed for VS Code webview -->'
   );
 
-  // ── Patch 2: neutralise hard-coded Azure credentials ──
-  // Replace AZURE_BASE and AZURE_KEY with empty strings;
-  // the bridge script (injected by extension.js) will supply
-  // the real values from VS Code settings at runtime.
-  html = html.replace(
-    /const AZURE_BASE\s*=\s*['"][^'"]*['"]/,
-    "const AZURE_BASE = ''"
-  );
-  html = html.replace(
-    /const AZURE_KEY\s*=\s*['"][^'"]*['"]/,
-    "const AZURE_KEY  = ''"
-  );
+  // ── Patch 2: clear hard-coded Azure credentials ───────
+  html = html.replace(/const AZURE_BASE\s*=\s*['"][^'"]*['"]/, "const AZURE_BASE = ''");
+  html = html.replace(/const AZURE_KEY\s*=\s*['"][^'"]*['"]/, "const AZURE_KEY  = ''");
 
-  // ── Patch 3: add VS Code webview CSP meta tag ─────────
-  // Allow scripts from 'self' and the CDNs already used in the app
+  // ── Patch 3: VS Code webview CSP ──────────────────────
   const csp = '<meta http-equiv="Content-Security-Policy" ' +
     'content="default-src \'none\'; ' +
     'script-src \'unsafe-inline\' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; ' +
     'style-src \'unsafe-inline\' https://cdnjs.cloudflare.com; ' +
-    'font-src https:; ' +
-    'img-src data: https:; ' +
-    'connect-src https:;">';
-
+    'font-src https:; img-src data: https:; connect-src https:;">';
   html = html.replace('<head>', '<head>\n  ' + csp);
 
-  // ── Patch 4: remove the GitHub Gist sync UI label ─────
-  // (optional – keeps the extension cleaner; remove this block to keep it)
-  // Left in for now – users may still want Gist sync.
+  // ── Patch 4: Inject model-dropdown config wiring ──────
+  // When getConfig arrives, update MODELS and re-render the pill
+  const configWire = `
+<script id="ooumph-config-wire">
+(function(){
+  var _origInit = typeof init === 'function' ? init : null;
+  function applyConfig(cfg){
+    if(cfg.models&&cfg.models.length){
+      window.MODELS = cfg.models;
+      // Refresh dropdown options if it exists
+      var dd = document.querySelector('.model-dropdown');
+      if(dd){
+        dd.innerHTML = cfg.models.map(function(m){
+          return '<div class="model-opt" onclick="setModelPill(\''+m+'\');toggleModelDrop()">' + m + '</div>';
+        }).join('');
+      }
+    }
+    if(cfg.defaultModel && typeof setModelPill==='function') setModelPill(cfg.defaultModel);
+    if(cfg.azureEndpoint) window.AZURE_BASE = cfg.azureEndpoint;
+    if(cfg.azureApiKey)   window.AZURE_KEY  = cfg.azureApiKey;
+    if(cfg.azureApiVersion) window.API_VER  = cfg.azureApiVersion;
+  }
+  // The VS Code bridge sets __onConfig; override here for config wiring
+  var prev = window.__onConfig;
+  window.__onConfig = function(cfg){
+    applyConfig(cfg);
+    if(typeof prev==='function') prev(cfg);
+  };
+})();
+<\/script>`;
+  html = html.replace('</head>', configWire + '\n</head>');
 
-  // Write output
+  // ── Write output ──────────────────────────────────────
   fs.writeFileSync(OUT_FILE, html, 'utf8');
   console.log('\n✅ media/chat.html written (' + html.length + ' bytes)');
   console.log('\nNext steps:');
   console.log('  1. Open this folder in VS Code:  code .');
   console.log('  2. Press F5 to launch Extension Development Host');
-  console.log('  3. In the new window, open the Ooumph chat:');
-  console.log('     • Click the speech-bubble icon in the Activity Bar, OR');
-  console.log('     • Press Ctrl+Shift+O  (Cmd+Shift+O on Mac)\n');
+  console.log('  3. Click the speech-bubble icon in the Activity Bar');
+  console.log('     or press Ctrl+Shift+O (Cmd+Shift+O on Mac)\n');
+  console.log('To package as .vsix:');
+  console.log('  npm install -g @vscode/vsce');
+  console.log('  vsce package');
+  console.log('  code --install-extension ooumph-ai-chat-1.0.0.vsix\n');
 });
 
 // ── helpers ──────────────────────────────────────────────
