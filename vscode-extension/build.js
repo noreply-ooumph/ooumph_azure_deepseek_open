@@ -65,7 +65,8 @@ download(SOURCE_URL, (err, html) => {
   html = html.replace(/(<button[^>]+id="send-btn"[^>]+)\bdisabled\b/, '$1');
 
   // Patch 5: add placeholder where extension.js will inject the handlers script
-  html = html.replace('</body>', '<!-- VSC_HANDLERS_PLACEHOLDER -->\n</body>');
+  // Replace LAST </body> - first occurrence is inside a JS string in the export function!
+  html = html.replace(/(<\/body>)(?![\s\S]*<\/body>)/, '<!-- VSC_HANDLERS_PLACEHOLDER -->\n</body>');
 
   fs.writeFileSync(OUT_FILE, html, 256);
   console.log('\n media/chat.html written (' + html.length + ' bytes)');
