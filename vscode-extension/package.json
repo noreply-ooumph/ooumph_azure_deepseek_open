@@ -2,82 +2,42 @@
   "name": "ooumph-ai-chat",
   "displayName": "Ooumph AI Chat",
   "description": "Azure DeepSeek AI Chat assistant — use it as a sidebar panel in VS Code",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "ooumph",
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "categories": [
-    "AI",
-    "Chat",
-    "Other"
-  ],
-  "keywords": [
-    "ai",
-    "chat",
-    "azure",
-    "deepseek",
-    "openai",
-    "assistant"
-  ],
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["AI", "Chat", "Other"],
+  "keywords": ["ai", "chat", "azure", "deepseek", "openai", "assistant"],
   "activationEvents": [],
   "main": "./extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "ooumph.openChat",
-        "title": "Ooumph: Open AI Chat",
-        "icon": "$(comment-discussion)"
-      }
+      { "command": "ooumph.openChat", "title": "Ooumph: Open AI Chat", "icon": "$(comment-discussion)" },
+      { "command": "ooumph.setCredentials", "title": "Ooumph: Set Azure Credentials" }
     ],
     "viewsContainers": {
       "activitybar": [
-        {
-          "id": "ooumph-sidebar",
-          "title": "Ooumph AI Chat",
-          "icon": "$(comment-discussion)"
-        }
+        { "id": "ooumph-sidebar", "title": "Ooumph AI Chat", "icon": "$(comment-discussion)" }
       ]
     },
     "views": {
       "ooumph-sidebar": [
-        {
-          "type": "webview",
-          "id": "ooumph.chatView",
-          "name": "Ooumph AI Chat"
-        }
+        { "type": "webview", "id": "ooumph.chatView", "name": "Ooumph AI Chat" }
       ]
     },
     "menus": {
       "editor/context": [
-        {
-          "command": "ooumph.openChat",
-          "group": "navigation"
-        }
+        { "command": "ooumph.openChat", "group": "navigation" }
       ],
       "view/title": [
-        {
-          "command": "ooumph.openChat",
-          "when": "view == ooumph.chatView",
-          "group": "navigation"
-        }
+        { "command": "ooumph.openChat", "when": "view == ooumph.chatView", "group": "navigation" }
       ]
     },
     "keybindings": [
-      {
-        "command": "ooumph.openChat",
-        "key": "ctrl+shift+o",
-        "mac": "cmd+shift+o",
-        "when": "editorFocus"
-      }
+      { "command": "ooumph.openChat", "key": "ctrl+shift+o", "mac": "cmd+shift+o", "when": "editorFocus" }
     ]
   },
-  "scripts": {
-    "package": "vsce package"
-  },
-  "devDependencies": {
-    "@vscode/vsce": "^2.24.0"
-  },
+  "scripts": { "package": "vsce package" },
+  "devDependencies": { "@vscode/vsce": "^2.24.0" },
   "repository": {
     "type": "git",
     "url": "https://github.com/noreply-ooumph/ooumph_azure_deepseek_open.git",
