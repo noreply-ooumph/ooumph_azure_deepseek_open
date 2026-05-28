@@ -89,7 +89,12 @@ function getWebviewContent(webview, extensionUri) {
   // This re-attaches all the onclick/onkeydown/oninput handlers
   // that build.js stripped from the HTML attributes.
   const handlerScript = buildHandlerScript(nonce);
-  html = html.replace('<!-- VSC_HANDLERS_PLACEHOLDER -->', handlerScript);
+  // Inject handlers: try placeholder first, fall back to </body>
+  if (html.includes('<!-- VSC_HANDLERS_PLACEHOLDER -->')) {
+    html = html.replace('<!-- VSC_HANDLERS_PLACEHOLDER -->', handlerScript);
+  } else {
+    html = html.replace('</body>', handlerScript + '\n</body>');
+  }
 
   return html;
 }
@@ -108,42 +113,45 @@ function buildHandlerScript(nonce) {
   s.push('    });');
   s.push('  }');
   s.push('');
-  // ── Sidebar / navigation ───────────────────────────
+  // ââ Sidebar / navigation âââââââââââââââââââââââââââ
   s.push('  on(".topbar-toggle", "click", function() { toggleSidebar(false); });');
   s.push('  on("#sb-overlay",    "click", function() { toggleSidebar(); });');
   s.push('  on(".btn-new",        "click", function() { newChat(); });');
   s.push('  on("#tab-chats",      "click", function() { switchSbTab("chats"); });');
   s.push('  on("#tab-graphify",   "click", function() { switchSbTab("graphify"); });');
-  // ── Search ────────────────────────────────────────
+  // ââ Search ââââââââââââââââââââââââââââââââââââââââ
   s.push('  on("#search", "input", function() { renderChatList(); });');
-  // ── Model dropdown ────────────────────────────────
+  // ââ Model dropdown ââââââââââââââââââââââââââââââââ
   s.push('  on("#model-pill", "click", function() { toggleModelDrop(); });');
-  // ── Topbar icons ──────────────────────────────────
+  // ââ Topbar icons ââââââââââââââââââââââââââââââââââ
   s.push('  var icons = document.querySelectorAll(".topbar-icon");');
   s.push('  if (icons[0]) icons[0].addEventListener("click", function() { openGhModal(); });');
   s.push('  if (icons[1]) icons[1].addEventListener("click", function() { openInstModal(); });');
   s.push('  if (icons[2]) icons[2].addEventListener("click", function() { showHelp(); });');
-  // ── Chat input / send ─────────────────────────────
+  // ââ Chat input / send âââââââââââââââââââââââââââââ
   s.push('  on("#input", "keydown", function(e) { onKey(e); });');
   s.push('  on("#input", "input",   function() { autoResize(this); updateSend(); });');
   s.push('  on("#send-btn", "click", function() { send(); });');
-  // ── Compose bar buttons ───────────────────────────
-  s.push('  on(".compose-btn", "click", function() { document.getElementById("file-input").click(); });');
+  // ââ Compose bar buttons âââââââââââââââââââââââââââ
+  s.push('  // Attach button uses first compose-btn (attach/paperclip)');
+  s.push('  on(".compose-btn:not(#sparkle-btn)", "click", function() { document.getElementById("file-input").click(); });');
   s.push('  on("#sparkle-btn", "click", function() { toggleTray(); });');
-  // ── Skills tray ───────────────────────────────────
+  // ── File input change handler (stripped by build.js, re-attached here) ───
+  s.push('  on("#file-input", "change", function() { handleFiles(this.files); });');
+  // ââ Skills tray âââââââââââââââââââââââââââââââââââ
   s.push('  on(".btn-add-skill", "click", function() { openSkillPanel(null); });');
   s.push('  on(".topbar-icon.tray-close", "click", function() { closeTray(); });');
-  // ── Skill panel ───────────────────────────────────
+  // ââ Skill panel âââââââââââââââââââââââââââââââââââ
   s.push('  on("#btn-del-skill", "click", function() { deleteSkillPanel(); });');
-  // ── Instructions modal ────────────────────────────
+  // ââ Instructions modal ââââââââââââââââââââââââââââ
   s.push('  var instBtns = document.querySelectorAll(".inst-modal button");');
   s.push('  if (instBtns[0]) instBtns[0].addEventListener("click", function() { closeInstModal(); });');
   s.push('  if (instBtns[1]) instBtns[1].addEventListener("click", function() { saveInst(); });');
-  // ── GitHub Gist modal ─────────────────────────────
+  // ââ GitHub Gist modal âââââââââââââââââââââââââââââ
   s.push('  var ghBtns = document.querySelectorAll(".gh-modal button");');
   s.push('  if (ghBtns[0]) ghBtns[0].addEventListener("click", function() { closeGhModal(); });');
   s.push('  if (ghBtns[1]) ghBtns[1].addEventListener("click", function() { saveGhSettings(); });');
-  // ── Context menu ──────────────────────────────────
+  // ââ Context menu ââââââââââââââââââââââââââââââââââ
   s.push('  on(".ctx-rename", "click", function() { ctxRename(); });');
   s.push('  on(".ctx-star",   "click", function() { ctxStar(); });');
   s.push('  on(".ctx-delete", "click", function() { ctxDelete(); });');
