@@ -93,7 +93,8 @@ function getWebviewContent(webview, extensionUri) {
   if (html.includes('<!-- VSC_HANDLERS_PLACEHOLDER -->')) {
     html = html.replace('<!-- VSC_HANDLERS_PLACEHOLDER -->', handlerScript);
   } else {
-    html = html.replace('</body>', handlerScript + '\n</body>');
+    // Replace LAST </body> - first is inside a JS string in export function!
+    html = html.replace(/(<\/body>)(?![\s\S]*<\/body>)/, handlerScript + '\n</body>');
   }
 
   return html;
@@ -113,45 +114,45 @@ function buildHandlerScript(nonce) {
   s.push('    });');
   s.push('  }');
   s.push('');
-  // ââ Sidebar / navigation âââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ Sidebar / navigation Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  on(".topbar-toggle", "click", function() { toggleSidebar(false); });');
   s.push('  on("#sb-overlay",    "click", function() { toggleSidebar(); });');
   s.push('  on(".btn-new",        "click", function() { newChat(); });');
   s.push('  on("#tab-chats",      "click", function() { switchSbTab("chats"); });');
   s.push('  on("#tab-graphify",   "click", function() { switchSbTab("graphify"); });');
-  // ââ Search ââââââââââââââââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ Search Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  on("#search", "input", function() { renderChatList(); });');
-  // ââ Model dropdown ââââââââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ Model dropdown Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  on("#model-pill", "click", function() { toggleModelDrop(); });');
-  // ââ Topbar icons ââââââââââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ Topbar icons Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  var icons = document.querySelectorAll(".topbar-icon");');
   s.push('  if (icons[0]) icons[0].addEventListener("click", function() { openGhModal(); });');
   s.push('  if (icons[1]) icons[1].addEventListener("click", function() { openInstModal(); });');
   s.push('  if (icons[2]) icons[2].addEventListener("click", function() { showHelp(); });');
-  // ââ Chat input / send âââââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ Chat input / send Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  on("#input", "keydown", function(e) { onKey(e); });');
   s.push('  on("#input", "input",   function() { autoResize(this); updateSend(); });');
   s.push('  on("#send-btn", "click", function() { send(); });');
-  // ââ Compose bar buttons âââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ Compose bar buttons Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  // Attach button uses first compose-btn (attach/paperclip)');
   s.push('  on(".compose-btn:not(#sparkle-btn)", "click", function() { document.getElementById("file-input").click(); });');
   s.push('  on("#sparkle-btn", "click", function() { toggleTray(); });');
-  // ── File input change handler (stripped by build.js, re-attached here) ───
+  // ââ File input change handler (stripped by build.js, re-attached here) âââ
   s.push('  on("#file-input", "change", function() { handleFiles(this.files); });');
-  // ââ Skills tray âââââââââââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ Skills tray Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  on(".btn-add-skill", "click", function() { openSkillPanel(null); });');
   s.push('  on(".topbar-icon.tray-close", "click", function() { closeTray(); });');
-  // ââ Skill panel âââââââââââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ Skill panel Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  on("#btn-del-skill", "click", function() { deleteSkillPanel(); });');
-  // ââ Instructions modal ââââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ Instructions modal Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  var instBtns = document.querySelectorAll(".inst-modal button");');
   s.push('  if (instBtns[0]) instBtns[0].addEventListener("click", function() { closeInstModal(); });');
   s.push('  if (instBtns[1]) instBtns[1].addEventListener("click", function() { saveInst(); });');
-  // ââ GitHub Gist modal âââââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ GitHub Gist modal Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  var ghBtns = document.querySelectorAll(".gh-modal button");');
   s.push('  if (ghBtns[0]) ghBtns[0].addEventListener("click", function() { closeGhModal(); });');
   s.push('  if (ghBtns[1]) ghBtns[1].addEventListener("click", function() { saveGhSettings(); });');
-  // ââ Context menu ââââââââââââââââââââââââââââââââââ
+  // Ã¢ÂÂÃ¢ÂÂ Context menu Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
   s.push('  on(".ctx-rename", "click", function() { ctxRename(); });');
   s.push('  on(".ctx-star",   "click", function() { ctxStar(); });');
   s.push('  on(".ctx-delete", "click", function() { ctxDelete(); });');
