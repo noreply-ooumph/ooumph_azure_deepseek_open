@@ -1,18 +1,19 @@
 {
   "name": "ooumph-ai-chat",
   "displayName": "Ooumph AI Chat",
-  "description": "Azure DeepSeek AI Chat assistant — use it as a sidebar panel in VS Code",
-  "version": "1.0.1",
+  "description": "Azure DeepSeek AI Chat — full VS Code workspace context like Claude Code",
+  "version": "1.0.2",
   "publisher": "ooumph",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["AI", "Chat", "Other"],
   "keywords": ["ai", "chat", "azure", "deepseek", "openai", "assistant"],
-  "activationEvents": [],
+  "activationEvents": ["onStartupFinished"],
   "main": "./extension.js",
   "contributes": {
     "commands": [
-      { "command": "ooumph.openChat", "title": "Ooumph: Open AI Chat", "icon": "$(comment-discussion)" },
-      { "command": "ooumph.setCredentials", "title": "Ooumph: Set Azure Credentials" }
+      { "command": "ooumph.openChat",        "title": "Ooumph: Open AI Chat",          "icon": "$(comment-discussion)" },
+      { "command": "ooumph.setCredentials",  "title": "Ooumph: Set Azure Credentials"  },
+      { "command": "ooumph.refreshWorkspace","title": "Ooumph: Refresh Workspace Index" }
     ],
     "viewsContainers": {
       "activitybar": [
@@ -27,13 +28,10 @@
     "menus": {
       "editor/context": [
         { "command": "ooumph.openChat", "group": "navigation" }
-      ],
-      "view/title": [
-        { "command": "ooumph.openChat", "when": "view == ooumph.chatView", "group": "navigation" }
       ]
     },
     "keybindings": [
-      { "command": "ooumph.openChat", "key": "ctrl+shift+o", "mac": "cmd+shift+o", "when": "editorFocus" }
+      { "command": "ooumph.openChat", "key": "ctrl+shift+alt+o", "mac": "cmd+shift+alt+o" }
     ]
   },
   "scripts": { "package": "vsce package" },
@@ -43,6 +41,5 @@
     "url": "https://github.com/noreply-ooumph/ooumph_azure_deepseek_open.git",
     "directory": "vscode-extension"
   },
-  "homepage": "https://noreply-ooumph.github.io/ooumph_azure_deepseek_open/",
   "license": "MIT"
 }
