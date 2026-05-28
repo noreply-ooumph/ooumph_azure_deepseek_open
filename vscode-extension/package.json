@@ -70,50 +70,13 @@
         "mac": "cmd+shift+o",
         "when": "editorFocus"
       }
-    ],
-    "configuration": {
-      "title": "Ooumph AI Chat",
-      "properties": {
-        "ooumph.azureEndpoint": {
-          "type": "string",
-          "default": "",
-          "description": "Your Azure OpenAI endpoint (e.g. https://YOUR_RESOURCE.openai.azure.com)"
-        },
-        "ooumph.azureApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "Your Azure OpenAI API key"
-        },
-        "ooumph.azureApiVersion": {
-          "type": "string",
-          "default": "2025-01-01-preview",
-          "description": "Azure OpenAI API version"
-        },
-        "ooumph.models": {
-          "type": "array",
-          "default": [
-            "DeepSeek-R1",
-            "DeepSeek-V3",
-            "gpt-4o"
-          ],
-          "description": "List of Azure OpenAI deployment names to show in the model picker"
-        },
-        "ooumph.defaultModel": {
-          "type": "string",
-          "default": "DeepSeek-R1",
-          "description": "Default model/deployment to use"
-        }
-      }
-    }
+    ]
   },
   "scripts": {
-    "lint": "eslint .",
-    "package": "vsce package",
-    "publish": "vsce publish"
+    "package": "vsce package"
   },
   "devDependencies": {
-    "@vscode/vsce": "^2.24.0",
-    "@types/vscode": "^1.85.0"
+    "@vscode/vsce": "^2.24.0"
   },
   "repository": {
     "type": "git",
