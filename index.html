@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
 <title>Ooumph AI Chat</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.h9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1179,7 +1179,7 @@ function setModelPill(m) {
 }
 function toggleModelDrop() {
   const d=$("model-drop"); const isOpen=d.classList.toggle("open");
-  if(isOpen) d.innerHTML=MODELS.map(m=>'<div class="model-opt '+(m===S.model?"active":"")+'" onclick="setModelPill('\''+m+'\'');toggleModelDrop()">'+esc(m)+"</div>").join("");
+  if(isOpen) d.innerHTML=MODELS.map(m=>`<div class="model-opt ${m===S.model?"active":""}" onclick="setModelPill('${m}');toggleModelDrop()">${esc(m)}</div>`).join("");
 }
 document.addEventListener("click",e=>{
   if(!e.target.closest(".model-pill-wrap")) $("model-drop").classList.remove("open");
@@ -1332,7 +1332,7 @@ async function init() {
   loadChatsLS(); loadSkillsLS();
   var _gd=await loadFromGist();
   if(_gd){try{S.chats=JSON.parse(_gd);}catch(e){}renderChatList();}
-  $("model-drop").innerHTML=MODELS.map(m=>'<div class="model-opt '+(m===S.model?"active":"")+'" onclick="setModelPill('\''+m+'\'');toggleModelDrop()">'+esc(m)+"</div>").join("");
+  $("model-drop").innerHTML=MODELS.map(m=>`<div class="model-opt ${m===S.model?"active":""}" onclick="setModelPill('${m}');toggleModelDrop()">${esc(m)}</div>`).join("");
   let resumed=false;
   try{const lastId=localStorage.getItem(LS_LAST);if(lastId){const c=S.chats.find(x=>x.id===lastId);if(c){openChat(c.id);resumed=true;}}}catch(e){}
   if(!resumed&&S.chats.length) openChat(S.chats[0].id);
