@@ -246,161 +246,113 @@ function getWebviewContent(webview, extensionUri) {
 }
 
 // ── VS Code Bridge (injected into webview HTML at runtime) ─
+// -- VS Code Bridge (injected before </body>) --
 function getBridgeScript() {
-  const S = [];
-  const p = (x) => S.push(x);
+  var L = [];
+  var p = function(x){ L.push(x); };
 
   p('<script id="vscode-bridge">');
-  p('(function () {');
-  p('  if (typeof acquireVsCodeApi === "undefined") return;');
-  p('  const vsc = acquireVsCodeApi();');
-  p('  window.__vscodeMode = true; window.__vscode = vsc;');
-  p('  window.__pending = {}; window.__reqId = 0;');
-  p('  function nid() { return "r" + (++window.__reqId); }');
-
-  // ── Public VS Code helpers ─────────────────────────────
-  p('  window.vscodeGetActiveFile     = () => vsc.postMessage({ type: "getActiveFile" });');
-  p('  window.vscodeApplyEdit         = (c) => vsc.postMessage({ type: "applyEdit",   content: c });');
-  p('  window.vscodeGetWorkspaceFiles = (pt) => vsc.postMessage({ type: "getWorkspaceFiles", pattern: pt });');
-  p('  window.vscodeReadFile          = (pt) => vsc.postMessage({ type: "readFile",  path: pt });');
-  p('  window.vscodeWriteFile         = (pt, c) => vsc.postMessage({ type: "writeFile", path: pt, content: c });');
-  p('  window.vscodeOpenSettings      = () => vsc.postMessage({ type: "openSettings" });');
-
-  // ── Override fetch() for Azure calls ──────────────────
-  p('  const _of = window.fetch.bind(window);');
-  p('  window.fetch = function (url, opts) {');
-  p('    if (typeof url === "string" && url.includes("openai.azure.com")) {');
-  p('      return new Promise((res, rej) => {');
-  p('        const id = nid();');
-  p('        let body = {};');
-  p('        try { body = JSON.parse(opts&&opts.body||"{}"); } catch(_){}');
-  p('        const isStream = body.stream !== false;');
-  p('        if (!isStream) {');
-  p('          window.__pending[id] = { resolve: res, reject: rej };');
-  p('          vsc.postMessage({ type:"azureRequest",requestId:id,');
-  p('            model:(url.match(/\\/deployments\\/([^\\/]+)\\//)||[])[1]||"",');
-  p('            messages:body.messages||[],stream:false,');
-  p('            temperature:body.temperature,maxTokens:body.max_tokens });');
+  p('(function(){');
+  p('  if(typeof acquireVsCodeApi==="undefined") return;');
+  p('  var vsc=acquireVsCodeApi();');
+  p('  window.__vscMode=true;');
+  p('  window.__pending={};');
+  p('  var _rid=0; function nid(){ return "r"+(++_rid); }');
+  p('  window.vscodeGetActiveFile=function(){vsc.postMessage({type:"getActiveFile"});};');
+  p('  window.vscodeApplyEdit=function(c){vsc.postMessage({type:"applyEdit",content:c});};');
+  p('  window.vscodeGetWorkspaceFiles=function(pt){vsc.postMessage({type:"getWorkspaceFiles",pattern:pt});};');
+  p('  window.vscodeReadFile=function(pt){vsc.postMessage({type:"readFile",path:pt});};');
+  p('  window.vscodeWriteFile=function(pt,c){vsc.postMessage({type:"writeFile",path:pt,content:c});};');
+  p('  window.vscodeOpenSettings=function(){vsc.postMessage({type:"openSettings"});};');
+  p('  var _of=window.fetch.bind(window);');
+  p('  window.fetch=function(url,opts){');
+  p('    if(typeof url==="string"&&url.indexOf("openai.azure.com")!==-1){');
+  p('      return new Promise(function(res,rej){');
+  p('        var id=nid();');
+  p('        var body={}; try{body=JSON.parse((opts&&opts.body)||"{}");}catch(e){}');
+  p('        var isStream=body.stream!==false;');
+  p('        var mm=url.match(/\\/deployments\\/([^\\/]+)\\//); var model=mm?mm[1]:"";');
+  p('        if(!isStream){');
+  p('          window.__pending[id]={resolve:res,reject:rej};');
+  p('          vsc.postMessage({type:"azureRequest",requestId:id,model:model,messages:body.messages||[],stream:false,temperature:body.temperature,maxTokens:body.max_tokens});');
   p('        } else {');
-  p('          let ctrl;');
-  p('          const stream = new ReadableStream({ start(c){ctrl=c;} });');
-  p('          window.__pending[id] = { stream:true, ctrl, resolve:res, reject:rej };');
-  p('          res({ ok:true,status:200,headers:new Headers({"content-type":"text/event-stream"}),body:stream });');
-  p('          vsc.postMessage({ type:"azureRequest",requestId:id,');
-  p('            model:(url.match(/\\/deployments\\/([^\\/]+)\\//)||[])[1]||"",');
-  p('            messages:body.messages||[],stream:true,');
-  p('            temperature:body.temperature,maxTokens:body.max_tokens });');
+  p('          var ctrl;');
+  p('          var st=new ReadableStream({start:function(c){ctrl=c;}});');
+  p('          window.__pending[id]={stream:true,ctrl:ctrl,resolve:res,reject:rej};');
+  p('          res({ok:true,status:200,headers:new Headers({"content-type":"text/event-stream"}),body:st});');
+  p('          vsc.postMessage({type:"azureRequest",requestId:id,model:model,messages:body.messages||[],stream:true,temperature:body.temperature,maxTokens:body.max_tokens});');
   p('        }');
   p('      });');
   p('    }');
-  p('    return _of(url, opts);');
+  p('    return _of(url,opts);');
   p('  };');
-
-  // ── Dispatch incoming messages ────────────────────────
-  p('  window.addEventListener("message", (evt) => {');
-  p('    const msg = evt.data; if (!msg) return;');
-  p('    const t = msg.type || msg.command;');
-
-  p('    if (t === "config") {');
-  p('      if (typeof AZURE_BASE !== "undefined") window.AZURE_BASE = msg.azureEndpoint;');
-  p('      if (typeof AZURE_KEY  !== "undefined") window.AZURE_KEY  = msg.azureApiKey;');
-  p('      if (typeof API_VER   !== "undefined") window.API_VER    = msg.azureApiVersion;');
-  p('      if (msg.models && typeof MODELS !== "undefined") {');
-  p('        window.MODELS = msg.models;');
-  p('        if (typeof setModelPill === "function") setModelPill(msg.defaultModel || msg.models[0]);');
-  p('      }');
-  p('      if (typeof window.__onConfig === "function") window.__onConfig(msg);');
+  p('  window.addEventListener("message",function(evt){');
+  p('    var msg=evt.data; if(!msg) return;');
+  p('    var t=msg.type||msg.command;');
+  p('    if(t==="config"){');
+  p('      try{if(msg.azureEndpoint)AZURE_BASE=msg.azureEndpoint;}catch(e){}');
+  p('      try{if(msg.azureApiKey)AZURE_KEY=msg.azureApiKey;}catch(e){}');
+  p('      try{if(msg.azureApiVersion)API_VER=msg.azureApiVersion;}catch(e){}');
+  p('      try{if(msg.models&&msg.models.length){MODELS=msg.models;if(typeof setModelPill==="function")setModelPill(msg.defaultModel||MODELS[0]);}}catch(e){}');
   p('      return;');
   p('    }');
-
-  p('    if (t === "activeFile") {');
-  p('      if (typeof window.__onActiveFile === "function") window.__onActiveFile(msg);');
-  p('      return;');
-  p('    }');
-
-  p('    if (t === "workspaceFiles") {');
-  p('      if (typeof window.__onWorkspaceFiles === "function") window.__onWorkspaceFiles(msg);');
-  p('      return;');
-  p('    }');
-
-  p('    if (t === "fileContent") {');
-  p('      if (typeof window.__onFileContent === "function") window.__onFileContent(msg);');
-  p('      return;');
-  p('    }');
-
-  p('    const pn = window.__pending[msg.requestId]; if (!pn) return;');
-  p('    if (t === "apiResponse") {');
-  p('      delete window.__pending[msg.requestId];');
-  p('      pn.resolve(new Response(JSON.stringify(msg.data),{status:200,headers:{"content-type":"application/json"}}));');
-  p('    } else if (t === "apiChunk") {');
-  p('      if (pn.stream && pn.ctrl) pn.ctrl.enqueue(new TextEncoder().encode("data: " + JSON.stringify(msg.chunk) + "\\n\\n"));');
-  p('    } else if (t === "apiDone") {');
-  p('      if (pn.stream && pn.ctrl) { pn.ctrl.enqueue(new TextEncoder().encode("data: [DONE]\\n\\n")); pn.ctrl.close(); }');
-  p('      delete window.__pending[msg.requestId];');
-  p('    } else if (t === "apiError") {');
-  p('      delete window.__pending[msg.requestId];');
-  p('      pn.stream ? pn.ctrl.error(new Error(msg.error)) : pn.reject(new Error(msg.error));');
-  p('    }');
+  p('    if(t==="activeFile"){if(typeof window.__onActiveFile==="function")window.__onActiveFile(msg);return;}');
+  p('    if(t==="workspaceFiles"){if(typeof window.__onWorkspaceFiles==="function")window.__onWorkspaceFiles(msg);return;}');
+  p('    if(t==="fileContent"){if(typeof window.__onFileContent==="function")window.__onFileContent(msg);return;}');
+  p('    var pn=window.__pending[msg.requestId]; if(!pn) return;');
+  p('    if(t==="apiResponse"){delete window.__pending[msg.requestId];pn.resolve(new Response(JSON.stringify(msg.data),{status:200,headers:{"content-type":"application/json"}}));}');
+  p('    else if(t==="apiChunk"){if(pn.stream&&pn.ctrl)pn.ctrl.enqueue(new TextEncoder().encode("data: "+JSON.stringify(msg.chunk)+"\\n\\n"));}');
+  p('    else if(t==="apiDone"){if(pn.stream&&pn.ctrl){pn.ctrl.enqueue(new TextEncoder().encode("data: [DONE]\\n\\n"));pn.ctrl.close();}delete window.__pending[msg.requestId];}');
+  p('    else if(t==="apiError"){delete window.__pending[msg.requestId];if(pn.stream&&pn.ctrl)pn.ctrl.error(new Error(msg.error));else pn.reject(new Error(msg.error));}');
   p('  });');
-
-  // ── Boot ──────────────────────────────────────────────
-  p('  vsc.postMessage({ type: "getConfig" });');
-  // ── Attach File button injected into input toolbar ───
-  p('  function injectAttachBtn() {');
-  p('    if (document.getElementById("vsc-attach-btn")) return;');
-  p('    const bar = document.querySelector("#input-row,.input-row,#composer,.input-bar");');
-  p('    if (!bar) return;');
-  p('    const btn = document.createElement("button");');
-  p('    btn.id = "vsc-attach-btn";');
-  p('    btn.title = "Attach current editor file as context";');
-  p('    btn.innerHTML = "<svg width=\'15\' height=\'15\' viewBox=\'0 0 16 16\' fill=\'currentColor\'><path d=\'M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0z\'/></svg>";');
-  p('    btn.style.cssText = "flex-shrink:0;opacity:0.7;padding:4px 6px;border-radius:6px;cursor:pointer;background:none;border:none;color:inherit;transition:opacity .15s";');
-  p('    btn.onmouseenter = () => btn.style.opacity="1";');
-  p('    btn.onmouseleave = () => btn.style.opacity="0.7";');
-  p('    btn.onclick = () => window.vscodeGetActiveFile();');
+  p('  setTimeout(function(){vsc.postMessage({type:"getConfig"});},150);');
+  p('');
+  p('  window.__onActiveFile=function(msg){');
+  p('    if(!msg.content) return;');
+  p('    var f=msg.fileName?msg.fileName.replace(/.*[\\/]/,""):"file";');
+  p('    var ctx="\\x60\\x60\\x60"+(msg.language||"")+"\\n// "+f+"\\n"+msg.content+"\\n\\x60\\x60\\x60\\n";');
+  p('    var ta=document.querySelector("#prompt,#input,textarea");');
+  p('    if(ta){ta.value=ctx+(ta.value?"\\n"+ta.value:"");ta.dispatchEvent(new Event("input",{bubbles:true}));ta.focus();}');
+  p('  };');
+  p('');
+  p('  function injectAttachBtn(){');
+  p('    if(document.getElementById("vsc-attach-btn")) return;');
+  p('    var bar=document.querySelector(".input-bar,#input-row,.input-row,#composer");');
+  p('    if(!bar) return;');
+  p('    var btn=document.createElement("button");');
+  p('    btn.id="vsc-attach-btn"; btn.title="Attach current editor file as context";');
+  p('    btn.textContent="Attach File";');
+  p('    btn.style.cssText="font-size:11px;opacity:0.7;padding:3px 8px;border-radius:5px;cursor:pointer;background:rgba(255,255,255,.08);border:none;color:inherit;margin-left:4px;";');
+  p('    btn.onclick=function(){window.vscodeGetActiveFile();};');
   p('    bar.appendChild(btn);');
   p('  }');
-
-  // ── Handler: received active file ─────────────────────
-  p('  window.__onActiveFile = function(msg) {');
-  p('    if (!msg.content) return;');
-  p('    const fname = msg.fileName ? msg.fileName.replace(/.*[\\/\\/]/,"") : "file";');
-  p('    const ctx = "\\`\\`\\`" + (msg.language||"") + "\\n// " + (msg.fileName||fname) + "\\n" + msg.content + "\\n\\`\\`\\`\\n";');
-  p('    const ta = document.querySelector("#prompt,#input,textarea");');
-  p('    if (ta) { ta.value = ctx + (ta.value ? "\\n" + ta.value : ""); ta.dispatchEvent(new Event("input",{bubbles:true})); ta.focus(); }');
-  p('    const btn = document.getElementById("vsc-attach-btn");');
-  p('    if (btn) { btn.style.color="#4ec94e"; setTimeout(()=>btn.style.color="",1500); }');
-  p('  };');
-
-  // ── Apply to File buttons after AI code blocks ────────
-  p('  function addApplyButtons() {');
-  p('    document.querySelectorAll(".msg.assistant .msg-bubble pre").forEach(pre => {');
-  p('      if (pre.dataset.applyAdded) return;');
-  p('      pre.dataset.applyAdded = "1";');
-  p('      const code = pre.querySelector("code"); if (!code) return;');
-  p('      const w = document.createElement("div");');
-  p('      w.style.cssText = "display:flex;gap:6px;margin-top:6px";');
-  p('      const ab = document.createElement("button");');
-  p('      ab.textContent = "⬆ Apply to File";');
-  p('      ab.style.cssText = "font-size:11px;padding:3px 10px;border-radius:5px;background:#c96442;color:#fff;border:none;cursor:pointer";');
-  p('      ab.onclick = () => { window.vscodeApplyEdit(code.innerText); ab.textContent="✓ Applied"; setTimeout(()=>{ab.textContent="⬆ Apply to File";},2000); };');
-  p('      const cb = document.createElement("button");');
-  p('      cb.textContent = "⎘ Copy";');
-  p('      cb.style.cssText = "font-size:11px;padding:3px 10px;border-radius:5px;background:rgba(255,255,255,.1);border:none;cursor:pointer;color:inherit";');
-  p('      cb.onclick = () => { navigator.clipboard.writeText(code.innerText).then(()=>{ cb.textContent="✓ Copied"; setTimeout(()=>{cb.textContent="⎘ Copy";},1500); }); };');
-  p('      w.appendChild(ab); w.appendChild(cb); pre.after(w);');
+  p('');
+  p('  function addApplyBtns(){');
+  p('    document.querySelectorAll(".msg.assistant .msg-bubble pre").forEach(function(pre){');
+  p('      if(pre.dataset.ab) return; pre.dataset.ab="1";');
+  p('      var code=pre.querySelector("code"); if(!code) return;');
+  p('      var w=document.createElement("div");');
+  p('      w.style.cssText="display:flex;gap:6px;margin-top:6px;";');
+  p('      var ab=document.createElement("button");');
+  p('      ab.textContent="Apply to File";');
+  p('      ab.style.cssText="font-size:11px;padding:3px 8px;border-radius:5px;background:#c96442;color:#fff;border:none;cursor:pointer;";');
+  p('      ab.onclick=function(){window.vscodeApplyEdit(code.innerText);ab.textContent="Applied";setTimeout(function(){ab.textContent="Apply to File";},2000);};');
+  p('      var cb=document.createElement("button");');
+  p('      cb.textContent="Copy";');
+  p('      cb.style.cssText="font-size:11px;padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.1);border:none;cursor:pointer;color:inherit;";');
+  p('      cb.onclick=function(){navigator.clipboard.writeText(code.innerText).then(function(){cb.textContent="Copied";setTimeout(function(){cb.textContent="Copy";},1500);});};');
+  p('      w.appendChild(ab);w.appendChild(cb);pre.after(w);');
   p('    });');
   p('  }');
-
-  p('  const obs = new MutationObserver(() => { addApplyButtons(); injectAttachBtn(); });');
-  p('  function boot() { obs.observe(document.body,{childList:true,subtree:true}); injectAttachBtn(); addApplyButtons(); }');
-  p('  document.readyState==="loading" ? document.addEventListener("DOMContentLoaded",boot) : boot();');
+  p('');
+  p('  var obs=new MutationObserver(function(){addApplyBtns();injectAttachBtn();});');
+  p('  obs.observe(document.body,{childList:true,subtree:true});');
+  p('  injectAttachBtn(); addApplyBtns();');
   p('})();');
   p('<\/script>');
-  return S.join('\n');
+  return L.join('\n');
 }
 
-// ── Fallback HTML ─────────────────────────────────────────
 function getFallbackHtml() {
   return '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
     '<style>body{font-family:system-ui;padding:24px;background:#1a1a1a;color:#ececec}' +
