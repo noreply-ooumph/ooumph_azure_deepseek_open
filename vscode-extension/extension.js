@@ -1,9 +1,5 @@
 // Ooumph AI Chat -- VS Code Extension
 // extension.js
-//
-// Fetches chat HTML from GitHub Pages on demand — no build step required.
-// Processes the HTML in-memory: strips inline handlers, adds nonce-based CSP,
-// and re-attaches all event listeners via addEventListener inside a nonce script.
 
 const vscode = require('vscode');
 const crypto = require('crypto');
@@ -11,7 +7,9 @@ const https  = require('https');
 const fs     = require('fs');
 const path   = require('path');
 
-const SOURCE_URL = 'https://noreply-ooumph.github.io/ooumph_azure_deepseek_open/';
+const SOURCE_URL      = 'https://noreply-ooumph.github.io/ooumph_azure_deepseek_open/';
+const SECRET_ENDPOINT = 'ooumph.azureEndpoint';
+const SECRET_KEY      = 'ooumph.azureKey';
 
 let panel;
 
@@ -27,22 +25,74 @@ function activate(context) {
     )
   );
 
-  const cmd = vscode.commands.registerCommand('ooumph.openChat', async () => {
-    if (panel) { panel.reveal(vscode.ViewColumn.Beside); return; }
-    panel = vscode.window.createWebviewPanel(
-      'ooumphChat', 'Ooumph AI Chat',
-      vscode.ViewColumn.Beside,
-      getWebviewOptions(context.extensionUri)
-    );
-    panel.webview.html = getLoadingHtml();
-    try {
-      panel.webview.html = await buildWebviewHtml(panel.webview, context);
-    } catch (e) {
-      panel.webview.html = getErrorHtml(e.message);
+  // Command: open chat panel
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ooumph.openChat', async () => {
+      if (panel) { panel.reveal(vscode.ViewColumn.Beside); return; }
+      panel = vscode.window.createWebviewPanel(
+        'ooumphChat', 'Ooumph AI Chat',
+        vscode.ViewColumn.Beside,
+        getWebviewOptions(context.extensionUri)
+      );
+      panel.webview.html = getLoadingHtml();
+      try {
+        panel.webview.html = await buildWebviewHtml(panel.webview, context);
+      } catch (e) {
+        panel.webview.html = getErrorHtml(e.message);
+      }
+      panel.onDidDispose(() => { panel = undefined; }, null, context.subscriptions);
+    })
+  );
+
+  // Command: set Azure credentials
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ooumph.setCredentials', async () => {
+      const endpoint = await vscode.window.showInputBox({
+        title: 'Ooumph — Azure Endpoint',
+        prompt: 'Paste your Azure OpenAI endpoint URL',
+        placeHolder: 'https://YOUR-RESOURCE.openai.azure.com/',
+        value: (await context.secrets.get(SECRET_ENDPOINT)) || '',
+        ignoreFocusOut: true
+      });
+      if (endpoint === undefined) return;
+
+      const key = await vscode.window.showInputBox({
+        title: 'Ooumph — Azure API Key',
+        prompt: 'Paste your Azure OpenAI API key',
+        placeHolder: 'Fq04...',
+        password: true,
+        ignoreFocusOut: true
+      });
+      if (key === undefined) return;
+
+      await context.secrets.store(SECRET_ENDPOINT, endpoint.trim());
+      await context.secrets.store(SECRET_KEY, key.trim());
+
+      bustCache(context);
+
+      vscode.window.showInformationMessage('Ooumph: credentials saved. Reloading chat...');
+
+      if (panel) {
+        panel.webview.html = getLoadingHtml();
+        try { panel.webview.html = await buildWebviewHtml(panel.webview, context); }
+        catch (e) { panel.webview.html = getErrorHtml(e.message); }
+      }
+    })
+  );
+
+  // Prompt for credentials on first install
+  context.secrets.get(SECRET_KEY).then(k => {
+    if (!k) {
+      vscode.window.showInformationMessage(
+        'Ooumph AI Chat: set your Azure credentials to start chatting.',
+        'Set Credentials'
+      ).then(sel => {
+        if (sel === 'Set Credentials') {
+          vscode.commands.executeCommand('ooumph.setCredentials');
+        }
+      });
     }
-    panel.onDidDispose(() => { panel = undefined; }, null, context.subscriptions);
   });
-  context.subscriptions.push(cmd);
 }
 
 // ---------------------------------------------------------------------------
@@ -73,11 +123,28 @@ async function buildWebviewHtml(webview, context) {
     html = patchHtml(raw);
     saveCache(context, html).catch(() => {});
   }
+
+  const endpoint = (await context.secrets.get(SECRET_ENDPOINT)) || '';
+  const key      = (await context.secrets.get(SECRET_KEY))      || '';
+  html = injectCredentials(html, endpoint, key);
+
   return injectSecurityAndHandlers(webview, html);
 }
 
 // ---------------------------------------------------------------------------
-// HTML patching (same transforms as build.js)
+// Inject credentials as window globals before main script runs
+// ---------------------------------------------------------------------------
+function injectCredentials(html, endpoint, key) {
+  const script =
+    '<script id="ooumph-creds">' +
+    'window.__OOUMPH_ENDPOINT__=' + JSON.stringify(endpoint) + ';' +
+    'window.__OOUMPH_KEY__=' + JSON.stringify(key) + ';' +
+    '<\/script>';
+  return html.replace('<body', script + '\n<body');
+}
+
+// ---------------------------------------------------------------------------
+// HTML patching
 // ---------------------------------------------------------------------------
 function patchHtml(html) {
   html = html.replace(/<script>!function\(\)[^<]+_ov[^<]+<\/script>/, '<!-- version-check removed -->');
@@ -95,12 +162,13 @@ function patchHtml(html) {
 }
 
 // ---------------------------------------------------------------------------
-// Inject CSP meta tag + nonce + handler script
+// Inject CSP + nonce + handler script
 // ---------------------------------------------------------------------------
 function injectSecurityAndHandlers(webview, html) {
   const nonce = crypto.randomBytes(16).toString('base64');
 
   html = html.replace(/<script>/g, '<script nonce="' + nonce + '">');
+  html = html.replace('<script id="ooumph-creds">', '<script nonce="' + nonce + '" id="ooumph-creds">');
 
   const cspParts = [
     "default-src 'none'",
@@ -126,7 +194,7 @@ function injectSecurityAndHandlers(webview, html) {
 }
 
 // ---------------------------------------------------------------------------
-// Event-handler re-attachment script
+// Event-handler re-attachment + credential override
 // ---------------------------------------------------------------------------
 function buildHandlerScript(nonce) {
   const s = [];
@@ -138,6 +206,8 @@ function buildHandlerScript(nonce) {
   s.push('    if (el) el.addEventListener(evt, fn);');
   s.push('  }');
   s.push('  function wire() {');
+  s.push('    try { if(window.__OOUMPH_ENDPOINT__) AZURE_BASE = window.__OOUMPH_ENDPOINT__; } catch(e) {}');
+  s.push('    try { if(window.__OOUMPH_KEY__)      AZURE_KEY  = window.__OOUMPH_KEY__;      } catch(e) {}');
   s.push('    on(".topbar-toggle", "click", function() { toggleSidebar(false); });');
   s.push('    on("#sb-overlay",    "click", function() { toggleSidebar(); });');
   s.push('    on(".btn-new",        "click", function() { newChat(); });');
@@ -182,7 +252,7 @@ function buildHandlerScript(nonce) {
 }
 
 // ---------------------------------------------------------------------------
-// Cache helpers (globalStorageUri — survives extension updates)
+// Cache helpers
 // ---------------------------------------------------------------------------
 async function loadCached(context) {
   try {
@@ -200,12 +270,16 @@ async function saveCache(context, html) {
   fs.writeFileSync(getCachePath(context), html, 'utf8');
 }
 
+function bustCache(context) {
+  try { fs.unlinkSync(getCachePath(context)); } catch (_) {}
+}
+
 function getCachePath(context) {
   return path.join(context.globalStorageUri.fsPath, 'chat.html');
 }
 
 // ---------------------------------------------------------------------------
-// HTTP download with redirect follow
+// HTTP download
 // ---------------------------------------------------------------------------
 function download(url) {
   return new Promise((resolve, reject) => {
@@ -255,7 +329,7 @@ function getErrorHtml(msg) {
     '<strong style="color:#e05252">Failed to load Ooumph AI Chat</strong><br><br>' +
     '<code style="font-size:12px">' + (msg || 'Unknown error') + '</code><br><br>' +
     '<p style="font-size:13px">Check your internet connection and reload ' +
-    '(<kbd>Ctrl+Shift+P</kbd> → <em>Developer: Reload Window</em>).</p>' +
+    '(<kbd>Ctrl+Shift+P</kbd> then <em>Developer: Reload Window</em>).</p>' +
     '</body></html>';
 }
 
