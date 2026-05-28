@@ -342,15 +342,29 @@ class OoumphViewProvider {
 }
 
 // ---------------------------------------------------------------------------
-// Build HTML
+// Build HTML — cache-first, background refresh
 // ---------------------------------------------------------------------------
 async function buildWebviewHtml(webview, context) {
-  let html = await loadCached(context);
+  // Always try cache first so webview loads instantly
+  let html = loadCachedSync(context);
+
   if (!html) {
-    const raw = await download(SOURCE_URL);
-    html = patchHtml(raw);
-    saveCache(context, html).catch(() => {});
+    // No cache at all — must download (show loading until done)
+    try {
+      const raw = await download(SOURCE_URL);
+      html = patchHtml(raw);
+      saveCache(context, html).catch(() => {});
+    } catch (e) {
+      throw new Error('Could not download chat UI: ' + e.message +
+        '. Check internet connection and run Developer: Reload Window.');
+    }
+  } else {
+    // Have cache — refresh in background silently
+    download(SOURCE_URL).then(raw => {
+      saveCache(context, patchHtml(raw)).catch(() => {});
+    }).catch(() => {});
   }
+
   const endpoint = (await context.secrets.get(SECRET_ENDPOINT)) || '';
   const key      = (await context.secrets.get(SECRET_KEY))      || '';
   html = injectCredentials(html, endpoint, key);
@@ -685,15 +699,14 @@ function buildHandlerScript(nonce) {
 }
 
 // ---------------------------------------------------------------------------
-// Cache
+// Cache — keep stale cache as fallback; only discard if fresh download works
 // ---------------------------------------------------------------------------
-async function loadCached(context) {
+function loadCachedSync(context) {
   try {
     const p = getCachePath(context);
-    if (!fs.existsSync(p)) return null;
-    if ((Date.now() - fs.statSync(p).mtimeMs) / 3600000 > 24) return null;
-    return fs.readFileSync(p, 'utf8');
-  } catch (_) { return null; }
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
+  } catch (_) {}
+  return null;
 }
 async function saveCache(context, html) {
   const dir = context.globalStorageUri.fsPath;
@@ -704,14 +717,14 @@ function bustCache(context) { try { fs.unlinkSync(getCachePath(context)); } catc
 function getCachePath(context) { return path.join(context.globalStorageUri.fsPath, 'chat.html'); }
 
 // ---------------------------------------------------------------------------
-// HTTP download
+// HTTP download with 15-second timeout
 // ---------------------------------------------------------------------------
 function download(url) {
   return new Promise((resolve, reject) => {
     const follow = (u, hops) => {
       if (hops > 5) return reject(new Error('Too many redirects'));
       const mod = u.startsWith('https') ? https : require('http');
-      mod.get(u, res => {
+      const req = mod.get(u, res => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           const next = res.headers.location.startsWith('http')
             ? res.headers.location : new URL(res.headers.location, u).href;
@@ -721,7 +734,9 @@ function download(url) {
         let data = ''; res.setEncoding('utf8');
         res.on('data', c => { data += c; });
         res.on('end', () => resolve(data));
-      }).on('error', reject);
+      });
+      req.on('error', reject);
+      req.setTimeout(15000, () => { req.destroy(); reject(new Error('Download timed out')); });
     };
     follow(url, 0);
   });
