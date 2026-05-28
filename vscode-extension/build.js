@@ -2,17 +2,20 @@
 /**
  * build.js  --  Ooumph AI Chat VS Code Extension setup script
  *
- * Run once after cloning (or after pulling updates):
+ * Run once after cloning:
  *   cd vscode-extension
  *   node build.js
  *
  * What it does:
  *  1. Downloads index.html from the live GitHub Pages site
- *  2. Strips the version-check reload snippet (causes loops in webview)
- *  3. Changes const->let for AZURE_BASE and AZURE_KEY so the bridge
- *     can update them at runtime from VS Code settings
- *  4. Writes the result to  media/chat.html
- *     (The bridge script in extension.js handles everything else at runtime)
+ *  2. Removes the version-check reload snippet
+ *  3. Changes const->let for AZURE_BASE/AZURE_KEY
+ *  4. Strips ALL inline event handlers (onclick=, onkeydown=, oninput=)
+ *     from HTML attributes -- VS Code webview blocks these even with unsafe-inline
+ *  5. Adds a placeholder <script id="vsc-handlers"> tag just before </body>
+ *     Extension.js replaces this placeholder with a nonce-tagged script
+ *     containing addEventListener() calls for all the stripped handlers
+ *  6. Writes result to media/chat.html
  */
 
 const https = require('https');
@@ -33,44 +36,45 @@ if (!fs.existsSync(OUT_DIR)) {
 
 console.log('Downloading ' + SOURCE_URL + ' ...');
 download(SOURCE_URL, (err, html) => {
-  if (err) { console.error('ERROR downloading source:', err.message); process.exit(1); }
+  if (err) { console.error('ERROR:', err.message); process.exit(1); }
   console.log('Downloaded ' + html.length + ' bytes');
 
-  // ── Patch 1: remove version-check reload snippet ──────
-  // This snippet calls location.reload() which loops forever in a webview
+  // Patch 1: remove version-check reload snippet
   html = html.replace(
     /<script>!function\(\)[^<]+_ov[^<]+<\/script>/,
-    '<!-- version-check removed for VS Code webview -->'
+    '<!-- version-check removed -->'
   );
 
-  // ── Patch 2: const -> let for Azure credential vars ───
-  // The bridge script needs to UPDATE these at runtime from VS Code settings.
-  // 'const' variables cannot be reassigned, so we change them to 'let'.
+  // Patch 2: const -> let for Azure credential vars
   html = html.replace(/\bconst (AZURE_BASE\s*=)/, 'let   $1');
   html = html.replace(/\bconst (AZURE_KEY\s*=)/,  'let   $1');
-
-  // ── Patch 3: clear the credential values ─────────────
-  // Blank them out so the extension must supply them via settings.
-  // The bridge will fill them in as soon as VS Code sends the config.
   html = html.replace(/(let\s+AZURE_BASE\s*=\s*)['"][^'"]*['"]/, "$1''");
   html = html.replace(/(let\s+AZURE_KEY\s*=\s*)['"][^'"]*['"]/, "$1''");
 
-  // ── Write output ──────────────────────────────────────
-  fs.writeFileSync(OUT_FILE, html, 'utf8');
+  // Patch 3: strip inline event handlers from HTML attributes
+  // VS Code webview blocks onclick=/onkeydown=/oninput= even with unsafe-inline.
+  // We remove them here; extension.js re-attaches them via addEventListener
+  // inside a nonce-tagged <script> block.
+  html = html.replace(/\s*onclick="[^"]*"/g, '');
+  html = html.replace(/\s*onkeydown="[^"]*"/g, '');
+  html = html.replace(/\s*oninput="[^"]*"/g, '');
+  html = html.replace(/\s*onchange="[^"]*"/g, '');
+
+  // Patch 4: the send button starts disabled - remove disabled attr so it works
+  // (updateSend() will manage it after the textarea has content)
+  html = html.replace(/(<button[^>]+id="send-btn"[^>]+)\bdisabled\b/, '$1');
+
+  // Patch 5: add placeholder where extension.js will inject the handlers script
+  html = html.replace('</body>', '<!-- VSC_HANDLERS_PLACEHOLDER -->\n</body>');
+
+  fs.writeFileSync(OUT_FILE, html, 256);
   console.log('\n media/chat.html written (' + html.length + ' bytes)');
-  console.log('');
-  console.log('Next steps:');
-  console.log('  1. Open Settings in VS Code and search "ooumph"');
-  console.log('     Fill in: Azure Endpoint, Azure Api Key, Models list');
-  console.log('  2. Open this folder in VS Code:  code .');
-  console.log('  3. Press F5 to launch Extension Development Host, OR');
-  console.log('     package and install permanently:');
-  console.log('       vsce package');
-  console.log('       code --install-extension ooumph-ai-chat-1.0.0.vsix');
+  console.log('\nNext steps:');
+  console.log('  npm install');
+  console.log('  vsce package');
+  console.log('  code --install-extension ooumph-ai-chat-1.0.0.vsix');
   console.log('');
 });
-
-// ── helpers ──────────────────────────────────────────────
 
 function download(url, cb) {
   const follow = (u, redirects) => {
