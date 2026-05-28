@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build.js  –  Ooumph AI Chat VS Code Extension setup script
+ * build.js  --  Ooumph AI Chat VS Code Extension setup script
  *
  * Run once after cloning (or after pulling updates):
  *   cd vscode-extension
@@ -9,12 +9,10 @@
  * What it does:
  *  1. Downloads index.html from the live GitHub Pages site
  *  2. Strips the version-check reload snippet (causes loops in webview)
- *  3. Clears hard-coded Azure credentials (VS Code settings supply them)
- *  4. Adds VS Code webview CSP meta tag
- *  5. Adds "Attach File" button to the input toolbar
- *  6. Adds "Apply to File" + "Copy" buttons after AI code blocks
- *  7. Wires model dropdown to getConfig response
- *  8. Writes the result to  media/chat.html
+ *  3. Changes const->let for AZURE_BASE and AZURE_KEY so the bridge
+ *     can update them at runtime from VS Code settings
+ *  4. Writes the result to  media/chat.html
+ *     (The bridge script in extension.js handles everything else at runtime)
  */
 
 const https = require('https');
@@ -25,10 +23,13 @@ const SOURCE_URL = 'https://noreply-ooumph.github.io/ooumph_azure_deepseek_open/
 const OUT_DIR    = path.join(__dirname, 'media');
 const OUT_FILE   = path.join(OUT_DIR, 'chat.html');
 
-console.log('\n🔨 Ooumph AI Chat Extension Builder');
+console.log('\n Ooumph AI Chat Extension Builder');
 console.log('=====================================');
 
-if (!fs.existsSync(OUT_DIR)) { fs.mkdirSync(OUT_DIR, {recursive: true}); console.log('Created media/'); }
+if (!fs.existsSync(OUT_DIR)) {
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  console.log('Created media/ folder');
+}
 
 console.log('Downloading ' + SOURCE_URL + ' ...');
 download(SOURCE_URL, (err, html) => {
@@ -36,67 +37,37 @@ download(SOURCE_URL, (err, html) => {
   console.log('Downloaded ' + html.length + ' bytes');
 
   // ── Patch 1: remove version-check reload snippet ──────
+  // This snippet calls location.reload() which loops forever in a webview
   html = html.replace(
     /<script>!function\(\)[^<]+_ov[^<]+<\/script>/,
     '<!-- version-check removed for VS Code webview -->'
   );
 
-  // ── Patch 2: clear hard-coded Azure credentials ───────
-  html = html.replace(/const AZURE_BASE\s*=\s*['"][^'"]*['"]/, "const AZURE_BASE = ''");
-  html = html.replace(/const AZURE_KEY\s*=\s*['"][^'"]*['"]/, "const AZURE_KEY  = ''");
+  // ── Patch 2: const -> let for Azure credential vars ───
+  // The bridge script needs to UPDATE these at runtime from VS Code settings.
+  // 'const' variables cannot be reassigned, so we change them to 'let'.
+  html = html.replace(/\bconst (AZURE_BASE\s*=)/, 'let   $1');
+  html = html.replace(/\bconst (AZURE_KEY\s*=)/,  'let   $1');
 
-  // ── Patch 3: VS Code webview CSP ──────────────────────
-  const csp = '<meta http-equiv="Content-Security-Policy" ' +
-    'content="default-src \'none\'; ' +
-    'script-src \'unsafe-inline\' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; ' +
-    'style-src \'unsafe-inline\' https://cdnjs.cloudflare.com; ' +
-    'font-src https:; img-src data: https:; connect-src https:;">';
-  html = html.replace('<head>', '<head>\n  ' + csp);
-
-  // ── Patch 4: Inject model-dropdown config wiring ──────
-  // When getConfig arrives, update MODELS and re-render the pill
-  const configWire = `
-<script id="ooumph-config-wire">
-(function(){
-  var _origInit = typeof init === 'function' ? init : null;
-  function applyConfig(cfg){
-    if(cfg.models&&cfg.models.length){
-      window.MODELS = cfg.models;
-      // Refresh dropdown options if it exists
-      var dd = document.querySelector('.model-dropdown');
-      if(dd){
-        dd.innerHTML = cfg.models.map(function(m){
-          return '<div class="model-opt" onclick="setModelPill(\''+m+'\');toggleModelDrop()">' + m + '</div>';
-        }).join('');
-      }
-    }
-    if(cfg.defaultModel && typeof setModelPill==='function') setModelPill(cfg.defaultModel);
-    if(cfg.azureEndpoint) window.AZURE_BASE = cfg.azureEndpoint;
-    if(cfg.azureApiKey)   window.AZURE_KEY  = cfg.azureApiKey;
-    if(cfg.azureApiVersion) window.API_VER  = cfg.azureApiVersion;
-  }
-  // The VS Code bridge sets __onConfig; override here for config wiring
-  var prev = window.__onConfig;
-  window.__onConfig = function(cfg){
-    applyConfig(cfg);
-    if(typeof prev==='function') prev(cfg);
-  };
-})();
-<\/script>`;
-  html = html.replace('</head>', configWire + '\n</head>');
+  // ── Patch 3: clear the credential values ─────────────
+  // Blank them out so the extension must supply them via settings.
+  // The bridge will fill them in as soon as VS Code sends the config.
+  html = html.replace(/(let\s+AZURE_BASE\s*=\s*)['"][^'"]*['"]/, "$1''");
+  html = html.replace(/(let\s+AZURE_KEY\s*=\s*)['"][^'"]*['"]/, "$1''");
 
   // ── Write output ──────────────────────────────────────
   fs.writeFileSync(OUT_FILE, html, 'utf8');
-  console.log('\n✅ media/chat.html written (' + html.length + ' bytes)');
-  console.log('\nNext steps:');
-  console.log('  1. Open this folder in VS Code:  code .');
-  console.log('  2. Press F5 to launch Extension Development Host');
-  console.log('  3. Click the speech-bubble icon in the Activity Bar');
-  console.log('     or press Ctrl+Shift+O (Cmd+Shift+O on Mac)\n');
-  console.log('To package as .vsix:');
-  console.log('  npm install -g @vscode/vsce');
-  console.log('  vsce package');
-  console.log('  code --install-extension ooumph-ai-chat-1.0.0.vsix\n');
+  console.log('\n media/chat.html written (' + html.length + ' bytes)');
+  console.log('');
+  console.log('Next steps:');
+  console.log('  1. Open Settings in VS Code and search "ooumph"');
+  console.log('     Fill in: Azure Endpoint, Azure Api Key, Models list');
+  console.log('  2. Open this folder in VS Code:  code .');
+  console.log('  3. Press F5 to launch Extension Development Host, OR');
+  console.log('     package and install permanently:');
+  console.log('       vsce package');
+  console.log('       code --install-extension ooumph-ai-chat-1.0.0.vsix');
+  console.log('');
 });
 
 // ── helpers ──────────────────────────────────────────────
