@@ -1,9 +1,9 @@
 // Ooumph AI Chat – VS Code Extension
 // extension.js  (main entry point)
 // -------------------------------------------------------
-// This extension opens a WebviewPanel containing the full
-// Ooumph AI Chat UI.  API credentials are read from VS Code
-// settings so they are never hard-coded.
+// Handles:  azureRequest, getConfig, getActiveFile,
+//           applyEdit, getWorkspaceFiles, readFile,
+//           writeFile, showInfo, showError
 // -------------------------------------------------------
 
 const vscode = require('vscode');
@@ -19,24 +19,21 @@ function activate(context) {
   const provider = new OoumphViewProvider(context.extensionUri);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
-      OoumphViewProvider.viewType, provider, {webviewOptions: {retainContextWhenHidden: true}}
+      OoumphViewProvider.viewType, provider,
+      { webviewOptions: { retainContextWhenHidden: true } }
     )
   );
 
-  // ── Register palette command  ───────────────────────────
+  // ── Register palette / shortcut command ────────────────
   const cmd = vscode.commands.registerCommand('ooumph.openChat', () => {
-    if (panel) {
-      panel.reveal(vscode.ViewColumn.Beside);
-      return;
-    }
+    if (panel) { panel.reveal(vscode.ViewColumn.Beside); return; }
     panel = vscode.window.createWebviewPanel(
-      'ooumphChat',
-      'Ooumph AI Chat',
+      'ooumphChat', 'Ooumph AI Chat',
       vscode.ViewColumn.Beside,
       getWebviewOptions(context.extensionUri)
     );
     panel.webview.html = getWebviewContent(panel.webview, context.extensionUri);
-    setupMessageHandler(panel.webview, context);
+    setupMessageHandler(panel.webview, context, panel.webview);
     panel.onDidDispose(() => { panel = undefined; }, null, context.subscriptions);
   });
 
@@ -46,61 +43,56 @@ function activate(context) {
 // ── Sidebar WebviewView provider ─────────────────────────
 class OoumphViewProvider {
   static viewType = 'ooumph.chatView';
+  constructor(extensionUri) { this._extensionUri = extensionUri; }
 
-  constructor(extensionUri) {
-    this._extensionUri = extensionUri;
-  }
-
-  resolveWebviewView(webviewView, _ctx, _token) {
+  resolveWebviewView(webviewView) {
     this._view = webviewView;
     webviewView.webview.options = getWebviewOptions(this._extensionUri);
-    webviewView.webview.html   = getWebviewContent(webviewView.webview, this._extensionUri);
-    setupMessageHandler(webviewView.webview, {extensionUri: this._extensionUri});
+    webviewView.webview.html    = getWebviewContent(webviewView.webview, this._extensionUri);
+    setupMessageHandler(webviewView.webview, { extensionUri: this._extensionUri }, webviewView.webview);
   }
 }
 
-// ── Message handler (webview ↔ extension host) ────────────
-function setupMessageHandler(webview, context) {
-  webview.onDidReceiveMessage(async (message) => {
-    switch (message.command) {
+// ── Central message handler ───────────────────────────────
+function setupMessageHandler(webview, _context, replyTarget) {
 
-      // Webview requests the current Azure config
+  webview.onDidReceiveMessage(async (message) => {
+    const reply = (msg) => replyTarget.postMessage(msg);
+
+    switch (message.command || message.type) {
+
+      // ── Config request ────────────────────────────────
       case 'getConfig': {
         const cfg = vscode.workspace.getConfiguration('ooumph');
-        webview.postMessage({
-          command: 'config',
-          azureEndpoint : cfg.get('azureEndpoint', ''),
-          azureApiKey   : cfg.get('azureApiKey',   ''),
+        reply({
+          command: 'config', type: 'config',
+          azureEndpoint:   cfg.get('azureEndpoint',   ''),
+          azureApiKey:     cfg.get('azureApiKey',     ''),
           azureApiVersion: cfg.get('azureApiVersion', '2025-01-01-preview'),
-          models        : cfg.get('models',        ['DeepSeek-R1', 'DeepSeek-V3', 'gpt-4o']),
-          defaultModel  : cfg.get('defaultModel',  'DeepSeek-R1')
+          models:          cfg.get('models',          ['DeepSeek-R1', 'DeepSeek-V3', 'gpt-4o']),
+          defaultModel:    cfg.get('defaultModel',    'DeepSeek-R1')
         });
         break;
       }
 
-      // Webview wants to open VS Code Settings for this extension
+      // ── Open Settings page ────────────────────────────
       case 'openSettings': {
-        vscode.commands.executeCommand(
-          'workbench.action.openSettings', '@ext:ooumph.ooumph-ai-chat'
-        );
+        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:ooumph.ooumph-ai-chat');
         break;
       }
 
-      // Webview sends a chat API request – extension proxies it
-      // (avoids CORS issues inside the webview sandbox)
-      case 'apiRequest': {
+      // ── Azure API proxy (streaming) ───────────────────
+      case 'apiRequest':
+      case 'azureRequest': {
         try {
           const cfg = vscode.workspace.getConfiguration('ooumph');
-          const endpoint   = cfg.get('azureEndpoint', '');
-          const apiKey     = cfg.get('azureApiKey',   '');
-          const apiVersion = cfg.get('azureApiVersion', '2025-01-01-preview');
+          const endpoint   = message.endpoint   || cfg.get('azureEndpoint',   '');
+          const apiKey     = message.apiKey      || cfg.get('azureApiKey',     '');
+          const apiVersion = message.apiVersion  || cfg.get('azureApiVersion', '2025-01-01-preview');
 
           if (!endpoint || !apiKey) {
-            webview.postMessage({
-              command: 'apiError',
-              requestId: message.requestId,
-              error: 'Azure credentials not configured. Open Settings → Ooumph AI Chat.'
-            });
+            reply({ command: 'apiError', type: 'apiError', requestId: message.requestId,
+              error: 'Azure credentials not configured. Open Settings and search ooumph.' });
             break;
           }
 
@@ -110,272 +102,316 @@ function setupMessageHandler(webview, context) {
 
           const response = await fetch(url, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'api-key': apiKey
-            },
+            headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
             body: JSON.stringify({
-              messages: message.messages,
-              stream: message.stream !== false,
+              messages:    message.messages,
+              stream:      message.stream !== false,
               temperature: message.temperature ?? 0.7,
-              max_tokens: message.maxTokens ?? 4096
+              max_tokens:  message.maxTokens   ?? 4096
             })
           });
 
           if (!response.ok) {
             const errText = await response.text();
-            webview.postMessage({
-              command: 'apiError',
-              requestId: message.requestId,
-              error: 'Azure API error ' + response.status + ': ' + errText
-            });
+            reply({ command: 'apiError', type: 'apiError', requestId: message.requestId,
+              error: 'Azure API error ' + response.status + ': ' + errText });
             break;
           }
 
           if (message.stream !== false) {
-            // Stream SSE chunks back to webview
-            const reader = response.body.getReader();
+            const reader  = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
             while (true) {
-              const {done, value} = await reader.read();
+              const { done, value } = await reader.read();
               if (done) break;
-              buffer += decoder.decode(value, {stream: true});
+              buffer += decoder.decode(value, { stream: true });
               const lines = buffer.split('\n');
-              buffer = lines.pop(); // keep incomplete line
+              buffer = lines.pop();
               for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || trimmed === 'data: [DONE]') continue;
-                if (trimmed.startsWith('data: ')) {
+                const t = line.trim();
+                if (!t || t === 'data: [DONE]') continue;
+                if (t.startsWith('data: ')) {
                   try {
-                    const chunk = JSON.parse(trimmed.slice(6));
-                    webview.postMessage({command: 'apiChunk', requestId: message.requestId, chunk});
-                  } catch (e) { /* ignore malformed chunk */ }
+                    const chunk = JSON.parse(t.slice(6));
+                    reply({ command: 'apiChunk', type: 'apiChunk', requestId: message.requestId, chunk });
+                  } catch (_) {}
                 }
               }
             }
-            webview.postMessage({command: 'apiDone', requestId: message.requestId});
+            reply({ command: 'apiDone', type: 'apiDone', requestId: message.requestId });
           } else {
             const data = await response.json();
-            webview.postMessage({command: 'apiResponse', requestId: message.requestId, data});
+            reply({ command: 'apiResponse', type: 'apiResponse', requestId: message.requestId, data });
           }
         } catch (err) {
-          webview.postMessage({
-            command: 'apiError',
-            requestId: message.requestId,
-            error: err.message
-          });
+          reply({ command: 'apiError', type: 'apiError', requestId: message.requestId, error: err.message });
         }
         break;
       }
 
-      // Webview wants to show a VS Code notification
-      case 'showInfo':
-        vscode.window.showInformationMessage(message.text);
+      // ── Get active editor file content ────────────────
+      case 'getActiveFile': {
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+          reply({ command: 'activeFile', type: 'activeFile',
+            content:  editor.document.getText(),
+            fileName: editor.document.fileName,
+            language: editor.document.languageId
+          });
+        } else {
+          reply({ command: 'activeFile', type: 'activeFile', content: null, fileName: null, language: null });
+        }
         break;
-      case 'showError':
-        vscode.window.showErrorMessage(message.text);
+      }
+
+      // ── Apply edited content to active file ───────────
+      case 'applyEdit': {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) { vscode.window.showWarningMessage('Ooumph: No active editor to apply edit to.'); break; }
+        const edit      = new vscode.WorkspaceEdit();
+        const fullRange = new vscode.Range(
+          editor.document.positionAt(0),
+          editor.document.positionAt(editor.document.getText().length)
+        );
+        edit.replace(editor.document.uri, fullRange, message.content);
+        await vscode.workspace.applyEdit(edit);
+        vscode.window.showInformationMessage('Ooumph: Edit applied to ' + path.basename(editor.document.fileName));
         break;
+      }
+
+      // ── List workspace files ──────────────────────────
+      case 'getWorkspaceFiles': {
+        const pattern = message.pattern || '**/*';
+        const exclude = message.exclude || '**/node_modules/**';
+        const limit   = message.limit   || 100;
+        const files   = await vscode.workspace.findFiles(pattern, exclude, limit);
+        reply({ command: 'workspaceFiles', type: 'workspaceFiles',
+          files: files.map(f => vscode.workspace.asRelativePath(f))
+        });
+        break;
+      }
+
+      // ── Read a specific file ──────────────────────────
+      case 'readFile': {
+        try {
+          const folders = vscode.workspace.workspaceFolders;
+          if (!folders) { reply({ command: 'fileContent', type: 'fileContent', error: 'No workspace open' }); break; }
+          const fileUri = vscode.Uri.joinPath(folders[0].uri, message.path);
+          const bytes   = await vscode.workspace.fs.readFile(fileUri);
+          reply({ command: 'fileContent', type: 'fileContent', path: message.path,
+            content: Buffer.from(bytes).toString('utf8')
+          });
+        } catch (err) {
+          reply({ command: 'fileContent', type: 'fileContent', path: message.path, error: err.message });
+        }
+        break;
+      }
+
+      // ── Write / create a file ─────────────────────────
+      case 'writeFile': {
+        try {
+          const folders = vscode.workspace.workspaceFolders;
+          if (!folders) { vscode.window.showErrorMessage('Ooumph: No workspace open.'); break; }
+          const fileUri = vscode.Uri.joinPath(folders[0].uri, message.path);
+          await vscode.workspace.fs.writeFile(fileUri, Buffer.from(message.content, 'utf8'));
+          reply({ command: 'fileWritten', type: 'fileWritten', path: message.path });
+          vscode.window.showInformationMessage('Ooumph: Saved ' + message.path);
+        } catch (err) {
+          vscode.window.showErrorMessage('Ooumph: Could not write file — ' + err.message);
+          reply({ command: 'fileWritten', type: 'fileWritten', path: message.path, error: err.message });
+        }
+        break;
+      }
+
+      // ── Notifications ─────────────────────────────────
+      case 'showInfo':  vscode.window.showInformationMessage(message.text); break;
+      case 'showError': vscode.window.showErrorMessage(message.text);       break;
     }
   });
 }
 
 // ── Webview helpers ───────────────────────────────────────
 function getWebviewOptions(extensionUri) {
-  return {
-    enableScripts: true,
-    localResourceRoots: [
-      vscode.Uri.joinPath(extensionUri, 'media')
-    ]
-  };
+  return { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')] };
 }
 
 function getWebviewContent(webview, extensionUri) {
-  // Load the bundled webview HTML from media/chat.html
   const htmlPath = vscode.Uri.joinPath(extensionUri, 'media', 'chat.html');
   let html;
-  try {
-    html = fs.readFileSync(htmlPath.fsPath, 'utf8');
-  } catch (e) {
-    return getFallbackHtml(webview);
-  }
-
-  // Inject the VS Code bridge script just before </body>
-  const bridge = getBridgeScript();
-  html = html.replace('</body>', bridge + '\n</body>');
+  try { html = fs.readFileSync(htmlPath.fsPath, 'utf8'); }
+  catch (_) { return getFallbackHtml(); }
+  html = html.replace('</body>', getBridgeScript() + '\n</body>');
   return html;
 }
 
-// Bridge script injected into the webview HTML.
-// It intercepts all fetch() calls to Azure and routes them
-// through the extension host via postMessage.
+// ── VS Code Bridge (injected into webview HTML at runtime) ─
 function getBridgeScript() {
-  return `
-<script id="vscode-bridge">
-(function() {
-  // Only run inside VS Code webview
-  if (typeof acquireVsCodeApi === 'undefined') return;
-  const vscode = acquireVsCodeApi();
+  const S = [];
+  const p = (x) => S.push(x);
 
-  // Ask extension for config on startup
-  window.__vscodeMode = true;
-  window.__vscode     = vscode;
+  p('<script id="vscode-bridge">');
+  p('(function () {');
+  p('  if (typeof acquireVsCodeApi === "undefined") return;');
+  p('  const vsc = acquireVsCodeApi();');
+  p('  window.__vscodeMode = true; window.__vscode = vsc;');
+  p('  window.__pending = {}; window.__reqId = 0;');
+  p('  function nid() { return "r" + (++window.__reqId); }');
 
-  // Request handlers map: requestId → {resolve, reject}
-  window.__pendingRequests = {};
-  window.__reqCounter = 0;
+  // ── Public VS Code helpers ─────────────────────────────
+  p('  window.vscodeGetActiveFile     = () => vsc.postMessage({ type: "getActiveFile" });');
+  p('  window.vscodeApplyEdit         = (c) => vsc.postMessage({ type: "applyEdit",   content: c });');
+  p('  window.vscodeGetWorkspaceFiles = (pt) => vsc.postMessage({ type: "getWorkspaceFiles", pattern: pt });');
+  p('  window.vscodeReadFile          = (pt) => vsc.postMessage({ type: "readFile",  path: pt });');
+  p('  window.vscodeWriteFile         = (pt, c) => vsc.postMessage({ type: "writeFile", path: pt, content: c });');
+  p('  window.vscodeOpenSettings      = () => vsc.postMessage({ type: "openSettings" });');
 
-  // Override the global fetch for Azure API calls only
-  const originalFetch = window.fetch.bind(window);
-  window.fetch = function(url, options) {
-    if (typeof url === 'string' && url.includes('openai.azure.com')) {
-      return new Promise((resolve, reject) => {
-        const requestId = 'req_' + (++window.__reqCounter);
-        let body;
-        try { body = JSON.parse(options?.body || '{}'); } catch(e) { body = {}; }
+  // ── Override fetch() for Azure calls ──────────────────
+  p('  const _of = window.fetch.bind(window);');
+  p('  window.fetch = function (url, opts) {');
+  p('    if (typeof url === "string" && url.includes("openai.azure.com")) {');
+  p('      return new Promise((res, rej) => {');
+  p('        const id = nid();');
+  p('        let body = {};');
+  p('        try { body = JSON.parse(opts&&opts.body||"{}"); } catch(_){}');
+  p('        const isStream = body.stream !== false;');
+  p('        if (!isStream) {');
+  p('          window.__pending[id] = { resolve: res, reject: rej };');
+  p('          vsc.postMessage({ type:"azureRequest",requestId:id,');
+  p('            model:(url.match(/\\/deployments\\/([^\\/]+)\\//)||[])[1]||"",');
+  p('            messages:body.messages||[],stream:false,');
+  p('            temperature:body.temperature,maxTokens:body.max_tokens });');
+  p('        } else {');
+  p('          let ctrl;');
+  p('          const stream = new ReadableStream({ start(c){ctrl=c;} });');
+  p('          window.__pending[id] = { stream:true, ctrl, resolve:res, reject:rej };');
+  p('          res({ ok:true,status:200,headers:new Headers({"content-type":"text/event-stream"}),body:stream });');
+  p('          vsc.postMessage({ type:"azureRequest",requestId:id,');
+  p('            model:(url.match(/\\/deployments\\/([^\\/]+)\\//)||[])[1]||"",');
+  p('            messages:body.messages||[],stream:true,');
+  p('            temperature:body.temperature,maxTokens:body.max_tokens });');
+  p('        }');
+  p('      });');
+  p('    }');
+  p('    return _of(url, opts);');
+  p('  };');
 
-        const isStream = body.stream !== false;
+  // ── Dispatch incoming messages ────────────────────────
+  p('  window.addEventListener("message", (evt) => {');
+  p('    const msg = evt.data; if (!msg) return;');
+  p('    const t = msg.type || msg.command;');
 
-        if (!isStream) {
-          // Non-streaming: wait for apiResponse
-          window.__pendingRequests[requestId] = {resolve, reject};
-          vscode.postMessage({
-            command: 'apiRequest',
-            requestId,
-            model  : url.match(/\/deployments\/([^\/]+)\//)?.[1] || '',
-            messages: body.messages || [],
-            stream  : false,
-            temperature: body.temperature,
-            maxTokens  : body.max_tokens
-          });
-        } else {
-          // Streaming: build a fake ReadableStream from SSE chunks
-          let controller;
-          const readable = new ReadableStream({
-            start(c) { controller = c; }
-          });
+  p('    if (t === "config") {');
+  p('      if (typeof AZURE_BASE !== "undefined") window.AZURE_BASE = msg.azureEndpoint;');
+  p('      if (typeof AZURE_KEY  !== "undefined") window.AZURE_KEY  = msg.azureApiKey;');
+  p('      if (typeof API_VER   !== "undefined") window.API_VER    = msg.azureApiVersion;');
+  p('      if (msg.models && typeof MODELS !== "undefined") {');
+  p('        window.MODELS = msg.models;');
+  p('        if (typeof setModelPill === "function") setModelPill(msg.defaultModel || msg.models[0]);');
+  p('      }');
+  p('      if (typeof window.__onConfig === "function") window.__onConfig(msg);');
+  p('      return;');
+  p('    }');
 
-          window.__pendingRequests[requestId] = {
-            stream: true,
-            controller,
-            resolve,
-            reject
-          };
+  p('    if (t === "activeFile") {');
+  p('      if (typeof window.__onActiveFile === "function") window.__onActiveFile(msg);');
+  p('      return;');
+  p('    }');
 
-          // Resolve immediately with a Response-like object
-          const encoder = new TextEncoder();
-          const mockResponse = {
-            ok: true,
-            status: 200,
-            headers: new Headers({'content-type': 'text/event-stream'}),
-            body: readable,
-            getReader: () => readable.getReader()
-          };
-          resolve(mockResponse);
+  p('    if (t === "workspaceFiles") {');
+  p('      if (typeof window.__onWorkspaceFiles === "function") window.__onWorkspaceFiles(msg);');
+  p('      return;');
+  p('    }');
 
-          vscode.postMessage({
-            command: 'apiRequest',
-            requestId,
-            model   : url.match(/\/deployments\/([^\/]+)\//)?.[1] || '',
-            messages : body.messages || [],
-            stream   : true,
-            temperature: body.temperature,
-            maxTokens  : body.max_tokens
-          });
-        }
-      });
-    }
-    return originalFetch(url, options);
-  };
+  p('    if (t === "fileContent") {');
+  p('      if (typeof window.__onFileContent === "function") window.__onFileContent(msg);');
+  p('      return;');
+  p('    }');
 
-  // Handle messages from extension host
-  window.addEventListener('message', (event) => {
-    const msg = event.data;
-    if (!msg || !msg.command) return;
+  p('    const pn = window.__pending[msg.requestId]; if (!pn) return;');
+  p('    if (t === "apiResponse") {');
+  p('      delete window.__pending[msg.requestId];');
+  p('      pn.resolve(new Response(JSON.stringify(msg.data),{status:200,headers:{"content-type":"application/json"}}));');
+  p('    } else if (t === "apiChunk") {');
+  p('      if (pn.stream && pn.ctrl) pn.ctrl.enqueue(new TextEncoder().encode("data: " + JSON.stringify(msg.chunk) + "\\n\\n"));');
+  p('    } else if (t === "apiDone") {');
+  p('      if (pn.stream && pn.ctrl) { pn.ctrl.enqueue(new TextEncoder().encode("data: [DONE]\\n\\n")); pn.ctrl.close(); }');
+  p('      delete window.__pending[msg.requestId];');
+  p('    } else if (t === "apiError") {');
+  p('      delete window.__pending[msg.requestId];');
+  p('      pn.stream ? pn.ctrl.error(new Error(msg.error)) : pn.reject(new Error(msg.error));');
+  p('    }');
+  p('  });');
 
-    if (msg.command === 'config') {
-      // Inject Azure config into the page's global variables
-      if (window.AZURE_BASE !== undefined) window.AZURE_BASE = msg.azureEndpoint;
-      if (window.AZURE_KEY  !== undefined) window.AZURE_KEY  = msg.azureApiKey;
-      if (window.API_VER    !== undefined) window.API_VER    = msg.azureApiVersion;
-      if (msg.models && window.MODELS !== undefined) window.MODELS = msg.models;
-      if (window.__configReady) window.__configReady(msg);
-      return;
-    }
+  // ── Boot ──────────────────────────────────────────────
+  p('  vsc.postMessage({ type: "getConfig" });');
+  // ── Attach File button injected into input toolbar ───
+  p('  function injectAttachBtn() {');
+  p('    if (document.getElementById("vsc-attach-btn")) return;');
+  p('    const bar = document.querySelector("#input-row,.input-row,#composer,.input-bar");');
+  p('    if (!bar) return;');
+  p('    const btn = document.createElement("button");');
+  p('    btn.id = "vsc-attach-btn";');
+  p('    btn.title = "Attach current editor file as context";');
+  p('    btn.innerHTML = "<svg width=\'15\' height=\'15\' viewBox=\'0 0 16 16\' fill=\'currentColor\'><path d=\'M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0z\'/></svg>";');
+  p('    btn.style.cssText = "flex-shrink:0;opacity:0.7;padding:4px 6px;border-radius:6px;cursor:pointer;background:none;border:none;color:inherit;transition:opacity .15s";');
+  p('    btn.onmouseenter = () => btn.style.opacity="1";');
+  p('    btn.onmouseleave = () => btn.style.opacity="0.7";');
+  p('    btn.onclick = () => window.vscodeGetActiveFile();');
+  p('    bar.appendChild(btn);');
+  p('  }');
 
-    const pending = window.__pendingRequests[msg.requestId];
-    if (!pending) return;
+  // ── Handler: received active file ─────────────────────
+  p('  window.__onActiveFile = function(msg) {');
+  p('    if (!msg.content) return;');
+  p('    const fname = msg.fileName ? msg.fileName.replace(/.*[\\/\\/]/,"") : "file";');
+  p('    const ctx = "\\`\\`\\`" + (msg.language||"") + "\\n// " + (msg.fileName||fname) + "\\n" + msg.content + "\\n\\`\\`\\`\\n";');
+  p('    const ta = document.querySelector("#prompt,#input,textarea");');
+  p('    if (ta) { ta.value = ctx + (ta.value ? "\\n" + ta.value : ""); ta.dispatchEvent(new Event("input",{bubbles:true})); ta.focus(); }');
+  p('    const btn = document.getElementById("vsc-attach-btn");');
+  p('    if (btn) { btn.style.color="#4ec94e"; setTimeout(()=>btn.style.color="",1500); }');
+  p('  };');
 
-    if (msg.command === 'apiResponse') {
-      delete window.__pendingRequests[msg.requestId];
-      pending.resolve(new Response(JSON.stringify(msg.data), {
-        status: 200,
-        headers: {'content-type': 'application/json'}
-      }));
-    } else if (msg.command === 'apiChunk') {
-      if (pending.stream && pending.controller) {
-        const enc = new TextEncoder();
-        const line = 'data: ' + JSON.stringify(msg.chunk) + '\\n\\n';
-        pending.controller.enqueue(enc.encode(line));
-      }
-    } else if (msg.command === 'apiDone') {
-      if (pending.stream && pending.controller) {
-        const enc = new TextEncoder();
-        pending.controller.enqueue(enc.encode('data: [DONE]\\n\\n'));
-        pending.controller.close();
-      }
-      delete window.__pendingRequests[msg.requestId];
-    } else if (msg.command === 'apiError') {
-      delete window.__pendingRequests[msg.requestId];
-      if (pending.stream && pending.controller) {
-        pending.controller.error(new Error(msg.error));
-      } else if (pending.reject) {
-        pending.reject(new Error(msg.error));
-      }
-    }
-  });
+  // ── Apply to File buttons after AI code blocks ────────
+  p('  function addApplyButtons() {');
+  p('    document.querySelectorAll(".msg.assistant .msg-bubble pre").forEach(pre => {');
+  p('      if (pre.dataset.applyAdded) return;');
+  p('      pre.dataset.applyAdded = "1";');
+  p('      const code = pre.querySelector("code"); if (!code) return;');
+  p('      const w = document.createElement("div");');
+  p('      w.style.cssText = "display:flex;gap:6px;margin-top:6px";');
+  p('      const ab = document.createElement("button");');
+  p('      ab.textContent = "⬆ Apply to File";');
+  p('      ab.style.cssText = "font-size:11px;padding:3px 10px;border-radius:5px;background:#c96442;color:#fff;border:none;cursor:pointer";');
+  p('      ab.onclick = () => { window.vscodeApplyEdit(code.innerText); ab.textContent="✓ Applied"; setTimeout(()=>{ab.textContent="⬆ Apply to File";},2000); };');
+  p('      const cb = document.createElement("button");');
+  p('      cb.textContent = "⎘ Copy";');
+  p('      cb.style.cssText = "font-size:11px;padding:3px 10px;border-radius:5px;background:rgba(255,255,255,.1);border:none;cursor:pointer;color:inherit";');
+  p('      cb.onclick = () => { navigator.clipboard.writeText(code.innerText).then(()=>{ cb.textContent="✓ Copied"; setTimeout(()=>{cb.textContent="⎘ Copy";},1500); }); };');
+  p('      w.appendChild(ab); w.appendChild(cb); pre.after(w);');
+  p('    });');
+  p('  }');
 
-  // Request config from extension
-  vscode.postMessage({command: 'getConfig'});
-
-  // If config arrives before init(), stash it for init() to pick up
-  window.__configReady = function(cfg) {
-    // Re-render model pill if app already started
-    if (typeof setModelPill === 'function' && cfg.defaultModel) {
-      setModelPill(cfg.defaultModel);
-    }
-    if (typeof renderChatList === 'function') renderChatList();
-  };
-})();
-<\/script>`;
+  p('  const obs = new MutationObserver(() => { addApplyButtons(); injectAttachBtn(); });');
+  p('  function boot() { obs.observe(document.body,{childList:true,subtree:true}); injectAttachBtn(); addApplyButtons(); }');
+  p('  document.readyState==="loading" ? document.addEventListener("DOMContentLoaded",boot) : boot();');
+  p('})();');
+  p('<\/script>');
+  return S.join('\n');
 }
 
-// Fallback HTML shown if media/chat.html is missing
-function getFallbackHtml(webview) {
-  return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8">
-<style>body{font-family:system-ui;padding:24px;background:#1a1a1a;color:#ececec}
-a{color:#c96442}.box{background:#2a2a2a;border-radius:10px;padding:20px;margin-top:16px}
-code{background:#383838;padding:2px 6px;border-radius:4px;font-size:13px}
-</style></head><body>
-<h2>⚠️ Ooumph AI Chat – Setup Required</h2>
-<div class="box">
-<p>The file <code>media/chat.html</code> is missing from the extension folder.</p>
-<p>Please run the setup steps in the extension's README to complete installation.</p>
-</div>
-<div class="box">
-<h3>Quick fix:</h3>
-<ol>
-<li>Open a terminal in the extension folder</li>
-<li>Run: <code>node build.js</code> (this downloads and adapts the web app)</li>
-<li>Reload VS Code window (Ctrl+Shift+P → "Reload Window")</li>
-</ol>
-</div>
-</body></html>`;
+// ── Fallback HTML ─────────────────────────────────────────
+function getFallbackHtml() {
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+    '<style>body{font-family:system-ui;padding:24px;background:#1a1a1a;color:#ececec}' +
+    'code{background:#383838;padding:2px 6px;border-radius:4px;font-size:13px}' +
+    '.box{background:#2a2a2a;border-radius:10px;padding:20px;margin-top:16px}' +
+    'ol{padding-left:20px;line-height:2}</style></head><body>' +
+    '<h2>⚠️ Setup Required</h2><div class="box"><p><code>media/chat.html</code> is missing.</p>' +
+    '<ol><li>Open a terminal in the extension folder</li>' +
+    '<li><code>node build.js</code></li>' +
+    '<li>Reload VS Code: Ctrl+Shift+P → Reload Window</li></ol></div></body></html>';
 }
 
-function deactivate() {
-  if (panel) { panel.dispose(); panel = undefined; }
-}
-
+function deactivate() { if (panel) { panel.dispose(); panel = undefined; } }
 module.exports = { activate, deactivate };
