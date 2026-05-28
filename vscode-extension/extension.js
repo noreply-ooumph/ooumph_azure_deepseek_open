@@ -241,11 +241,31 @@ function getWebviewContent(webview, extensionUri) {
   let html;
   try { html = fs.readFileSync(htmlPath.fsPath, 'utf8'); }
   catch (_) { return getFallbackHtml(); }
+
+  // Build the CSP meta tag using webview.cspSource.
+  // This is the REQUIRED way to allow scripts/styles in VS Code webviews.
+  // 'unsafe-inline' is needed for the app's onclick= handlers in innerHTML.
+  // 'unsafe-eval'   is needed for marked.js (uses new Function() internally).
+  // webview.cspSource allows loading local extension resources.
+  const csp = [
+    "default-src 'none'",
+    "script-src 'unsafe-inline' 'unsafe-eval' " + webview.cspSource +
+      " https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
+    "style-src 'unsafe-inline' " + webview.cspSource +
+      " https://cdnjs.cloudflare.com",
+    "font-src https:",
+    "img-src data: https: " + webview.cspSource,
+    "connect-src https:"
+  ].join('; ');
+
+  const cspMeta = '<meta http-equiv="Content-Security-Policy" content="' + csp + '">';
+
+  // Inject CSP right after <head>, then inject bridge before </body>
+  html = html.replace('<head>', '<head>\n  ' + cspMeta);
   html = html.replace('</body>', getBridgeScript() + '\n</body>');
   return html;
 }
 
-// ── VS Code Bridge (injected into webview HTML at runtime) ─
 // -- VS Code Bridge (injected before </body>) --
 function getBridgeScript() {
   var L = [];
