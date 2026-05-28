@@ -7,8 +7,19 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["AI", "Chat", "Other"],
-  "keywords": ["ai", "chat", "azure", "deepseek", "openai", "assistant"],
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "chat",
+    "azure",
+    "deepseek",
+    "openai",
+    "assistant"
+  ],
   "activationEvents": [],
   "main": "./extension.js",
   "contributes": {
@@ -80,7 +91,11 @@
         },
         "ooumph.models": {
           "type": "array",
-          "default": ["DeepSeek-R1", "DeepSeek-V3", "gpt-4o"],
+          "default": [
+            "DeepSeek-R1",
+            "DeepSeek-V3",
+            "gpt-4o"
+          ],
           "description": "List of Azure OpenAI deployment names to show in the model picker"
         },
         "ooumph.defaultModel": {
@@ -92,7 +107,6 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run lint",
     "lint": "eslint .",
     "package": "vsce package",
     "publish": "vsce publish"
