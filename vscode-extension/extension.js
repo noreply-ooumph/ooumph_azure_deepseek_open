@@ -182,17 +182,13 @@ function patchHtml(html) {
   return html;
 }
 
-// ─── Finalise: nonce + CSP + credentials + bridge ────────────────────────────
+// ─── Finalise: CSP + credentials + bridge ────────────────────────────────────
+// NOTE: No nonces. When a nonce is present, browsers ignore 'unsafe-inline',
+// which kills the app's 42 inline event handlers. Use 'unsafe-inline' alone.
 function finalise(webview, html, endpoint, apiKey) {
-  const nonce = crypto.randomBytes(16).toString('base64');
-
-  // Nonce all inline scripts
-  html = html.replace(/<script(\s*(?!nonce)[^>]*)>/g, (m, attrs) => '<script' + attrs + ' nonce="' + nonce + '">');
-
-  // CSP — 'unsafe-inline' required so the app's inline event handlers & scripts work
   const csp = [
     "default-src 'none'",
-    "script-src 'unsafe-inline' 'unsafe-eval' 'nonce-" + nonce + "' " + webview.cspSource +
+    "script-src 'unsafe-inline' 'unsafe-eval' " + webview.cspSource +
       " https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
     "style-src 'unsafe-inline' " + webview.cspSource + " https://cdnjs.cloudflare.com",
     "font-src https:",
@@ -201,23 +197,19 @@ function finalise(webview, html, endpoint, apiKey) {
   ].join('; ');
   html = html.replace('<head>', '<head>\n<meta http-equiv="Content-Security-Policy" content="' + csp + '">');
 
-  // Credentials script
-  const credScript = '<script nonce="' + nonce + '">' +
-    'window.__EP__=' + JSON.stringify(endpoint) + ';' +
-    'window.__KEY__=' + JSON.stringify(apiKey) + ';' +
-    '</script>';
+  // Credentials injected before app scripts run
+  const credScript = '<script>window.__EP__=' + JSON.stringify(endpoint) +
+    ';window.__KEY__=' + JSON.stringify(apiKey) + ';</script>';
 
-  // Bridge script (all event handlers + VS Code integration)
-  const bridgeScript = '<script nonce="' + nonce + '">' + getBridgeCode() + '</script>';
+  // Bridge: VS Code features (fetch intercept, apply buttons, context bar)
+  const bridgeScript = '<script>' + getBridgeCode() + '</script>';
 
   const inject = credScript + '\n' + bridgeScript;
-
   if (html.includes('<!--OOUMPH_INJECT-->')) {
     html = html.replace('<!--OOUMPH_INJECT-->', inject);
   } else {
     html = html.replace(/(<\/body>)(?![\s\S]*<\/body>)/, inject + '\n</body>');
   }
-
   return html;
 }
 
