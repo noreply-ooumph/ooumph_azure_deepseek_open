@@ -1046,21 +1046,19 @@ async function send() {
     S.abortCtrl=new AbortController();const _tmr=setTimeout(()=>S.abortCtrl?.abort(),45000);const resp=await fetch(url,{
       method:"POST",
       headers:{"Content-Type":"application/json","api-key":AZURE_KEY},signal:S.abortCtrl?.signal,
-      body:JSON.stringify({model:S.model,messages:apiMessages,max_tokens:8192,temperature:0.3,stream:true,top_p:0.9}),
+      body:JSON.stringify({model:S.model,messages:apiMessages,max_tokens:32000,temperature:0.3,stream:true,top_p:0.9}),
     });
     clearTimeout(_tmr);if(!resp.ok){const errText=await resp.text();throw new Error(resp.status+": "+errText);}
     const reader=resp.body.getReader(); const dec=new TextDecoder();
-    let buf="", renderTimer=null;
-    function scheduleRender(){
-      if(renderTimer) return;
-      renderTimer=setTimeout(()=>{
-        renderTimer=null;
-        cEl.className="msg-bubble streaming";
-        // Render markdown live so code blocks appear progressively
-        cEl.innerHTML=renderMd(aMsg.content)+'<span class="cursor-blink"></span>';
-        scrollBottom(false);
-      },STREAM_RENDER_INTERVAL);
-    }
+    // Live streaming: append directly to a Text node — zero DOM reflow per token.
+    // Markdown is rendered once at stream end, not during streaming.
+    cEl.className="msg-bubble streaming";
+    cEl.innerHTML='';
+    const _tn=document.createTextNode('');
+    const _cur=document.createElement('span'); _cur.className='cursor-blink';
+    cEl.appendChild(_tn); cEl.appendChild(_cur);
+    let buf="", _st=null;
+    function _scroll(){ if(_st) return; _st=setTimeout(()=>{_st=null;scrollBottom(false);},60); }
     while(true){
       const{done,value}=await reader.read(); if(done) break;
       buf+=dec.decode(value,{stream:true});
@@ -1070,11 +1068,10 @@ async function send() {
         const d=line.slice(6).trim(); if(d==="[DONE]") continue;
         try{
           const token=JSON.parse(d).choices?.[0]?.delta?.content||"";
-          if(token){aMsg.content+=token;S.tokens.c+=tok(token);updateTokens();scheduleRender();}
+          if(token){aMsg.content+=token;S.tokens.c+=tok(token);updateTokens();_tn.nodeValue=aMsg.content;_scroll();}
         }catch(e){}
       }
     }
-    if(renderTimer){clearTimeout(renderTimer);renderTimer=null;}
   } catch(e){
     aMsg.content="⚠️ "+e.message;
   } finally {
@@ -1082,6 +1079,8 @@ async function send() {
     cEl.className="msg-bubble";
     cEl.innerHTML=renderMd(aMsg.content);
     checkAndAddExportButtons(aMsg,cEl);
+    // Explicitly add Apply/Insert buttons after markdown is rendered
+    if(typeof window.__addOoumphButtons==="function") window.__addOoumphButtons();
     S.streaming=false; S.current.updatedAt=now(); updateSend(); saveChats(); updateTokens(); scrollBottom();
     try{localStorage.setItem(LS_LAST,S.current.id);}catch(e){}
     if(window.innerWidth<=768){ toggleSidebar(false); }

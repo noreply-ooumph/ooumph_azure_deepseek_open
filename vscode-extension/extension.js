@@ -371,11 +371,14 @@ function getBridgeCode() {
       });
     });
   }
-  // Run on every DOM mutation — debounced to avoid thrashing
+  // Expose so chat.html's finally{} can call it directly after renderMd
+  window.__addOoumphButtons = addButtons;
+
+  // Also run on every DOM mutation — debounced to avoid thrashing
   var _btnTimer = null;
   new MutationObserver(function() {
     clearTimeout(_btnTimer);
-    _btnTimer = setTimeout(addButtons, 120);
+    _btnTimer = setTimeout(addButtons, 150);
   }).observe(document.body, { childList: true, subtree: true });
 
   // ── Context bar ────────────────────────────────────────────────────────────
