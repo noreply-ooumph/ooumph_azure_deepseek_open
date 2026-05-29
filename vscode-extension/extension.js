@@ -168,12 +168,13 @@ async function buildHtml(webview, context) {
 function patchHtml(html) {
   // Strip version-check snippet
   html = html.replace(/<script>!function\(\)[^<]+_ov[^<]+<\/script>/g, '');
-  // Make Azure vars reassignable
-  html = html.replace(/\bconst (AZURE_BASE\s*=)/, 'let $1');
-  html = html.replace(/\bconst (AZURE_KEY\s*=)/, 'let $1');
+  // Change to var so they become window properties (let/const are NOT on window)
+  // This allows our bridge to set them from a different script block
+  html = html.replace(/\bconst (AZURE_BASE\s*=)/, 'var $1');
+  html = html.replace(/\bconst (AZURE_KEY\s*=)/, 'var $1');
   // Clear default credential values
-  html = html.replace(/(let\s+AZURE_BASE\s*=\s*)['"][^'"]*['"]/, "$1''");
-  html = html.replace(/(let\s+AZURE_KEY\s*=\s*)['"][^'"]*['"]/, "$1''");
+  html = html.replace(/(var\s+AZURE_BASE\s*=\s*)['"][^'"]*['"]/, "$1''");
+  html = html.replace(/(var\s+AZURE_KEY\s*=\s*)['"][^'"]*['"]/, "$1''");
   // DO NOT strip inline event handlers — keep them working with unsafe-inline CSP
   // Remove disabled from send button
   html = html.replace(/(<button[^>]+id="send-btn"[^>]+)\s+disabled\b/, '$1');
@@ -197,9 +198,13 @@ function finalise(webview, html, endpoint, apiKey) {
   ].join('; ');
   html = html.replace('<head>', '<head>\n<meta http-equiv="Content-Security-Policy" content="' + csp + '">');
 
-  // Credentials injected before app scripts run
-  const credScript = '<script>window.__EP__=' + JSON.stringify(endpoint) +
-    ';window.__KEY__=' + JSON.stringify(apiKey) + ';</script>';
+  // Credentials: set both window globals AND the app's var directly
+  const credScript = '<script>' +
+    'window.__EP__=' + JSON.stringify(endpoint) + ';' +
+    'window.__KEY__=' + JSON.stringify(apiKey) + ';' +
+    'if(typeof AZURE_BASE!=="undefined")AZURE_BASE=window.__EP__;' +
+    'if(typeof AZURE_KEY!=="undefined")AZURE_KEY=window.__KEY__;' +
+    '</script>';
 
   // Bridge: VS Code features (fetch intercept, apply buttons, context bar)
   const bridgeScript = '<script>' + getBridgeCode() + '</script>';
