@@ -219,6 +219,8 @@ function finalise(webview, html, endpoint, apiKey) {
 
 // ─── Bridge Code (runs inside webview) ───────────────────────────────────────
 function getBridgeCode() {
+  // NOTE: no backtick characters inside this template literal — they would end it.
+  // Use \x60 (hex escape for backtick) where backticks are needed in the output.
   return `
 (function() {
   'use strict';
@@ -226,6 +228,8 @@ function getBridgeCode() {
   var ctx  = { hasContext: false };
   var wsf  = [];
   var ctxOn = true;
+  var TICK = '\x60';
+  var FENCE = '\x60\x60\x60';
 
   // ── System prompt ──────────────────────────────────────────────────────────
   var SYS = [
@@ -233,19 +237,17 @@ function getBridgeCode() {
     'You behave like Claude Code — you can read, understand, and edit any file.',
     '',
     'When finding issues ALWAYS:',
-    '1. List every issue first with exact location: \\`filename.py:42\\` — description',
+    '1. List every issue with exact file:line — e.g. filename.py:42 — description',
     '2. Then show the complete corrected file in a code block',
-    '3. End with: "Click ⚡ Apply to File to apply this fix."',
+    '3. End with: Click Apply to File to apply this fix.',
     '',
     'Issue report format:',
     '**Issues found:**',
-    '1. \\`config.py:15\\` — Missing validation',
-    '2. \\`utils.py:42\\` — Null reference risk',
+    '1. config.py:15 — Missing validation',
+    '2. utils.py:42 — Null reference risk',
     '',
     '**Fix:**',
-    '\\`\\`\\`python',
-    '# complete corrected file',
-    '\\`\\`\\`',
+    '(complete corrected file in a fenced code block)',
     '',
     'Rules:',
     '- Always output COMPLETE file content when editing (not just the changed part)',
@@ -284,18 +286,17 @@ function getBridgeCode() {
           if (ctx.hasContext) {
             lines.push('## Active file: ' + ctx.relPath + ' (' + ctx.language + ', ' + ctx.lineCount + ' lines, cursor:' + ctx.cursorLine + ')');
             if (ctx.selection) {
-              lines.push('Selected:\\n\\`\\`\\`' + ctx.language + '\\n' + ctx.selection + '\\n\\`\\`\\`');
+              lines.push('Selected:\\n' + FENCE + ctx.language + '\\n' + ctx.selection + '\\n' + FENCE);
             }
           }
           if (wsf.length) {
             lines.push('\\n## Workspace files (' + wsf.length + ' total):');
             wsf.forEach(function(f) {
               lines.push('\\n### ' + f.relPath);
-              lines.push('\\`\\`\\`' + f.language);
-              // Add line numbers
+              lines.push(FENCE + f.language);
               var numbered = f.content.split('\\n').map(function(l, i) { return (i+1) + '  ' + l; }).join('\\n');
               lines.push(numbered);
-              lines.push('\\`\\`\\`');
+              lines.push(FENCE);
             });
           }
           var sysMsgContent = lines.join('\\n');
@@ -342,8 +343,8 @@ function getBridgeCode() {
     (root || document).querySelectorAll('p,li,td').forEach(function(el) {
       if (el.dataset.ll) return;
       el.dataset.ll = '1';
-      el.innerHTML = el.innerHTML.replace(/\`([^:\`]+\.[a-z]{1,6}):(\d+)\`/g, function(_, f, l) {
-        return '<a href="#" style="color:#c96442;font-family:monospace;text-decoration:underline;" data-f="' + f + '" data-l="' + l + '">\`' + f + ':' + l + '\`</a>';
+      el.innerHTML = el.innerHTML.replace(/([a-zA-Z0-9_\-./]+\.[a-z]{1,6}):(\d+)/g, function(_, f, l) {
+        return '<a href="#" style="color:#c96442;font-family:monospace;text-decoration:underline;" data-f="' + f + '" data-l="' + l + '">' + f + ':' + l + '</a>';
       });
     });
     document.querySelectorAll('a[data-f]').forEach(function(a) {
