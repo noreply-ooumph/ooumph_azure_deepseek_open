@@ -603,7 +603,7 @@ const LS_LAST    = "ooumph_last_chat";
 const LS_GH_PAT  = "ooumph_gh_pat";
 const LS_GH_GIST = "ooumph_gh_gist";
 const MAX_CONTEXT_MSGS   = 20;
-const STREAM_RENDER_INTERVAL = 16;
+const STREAM_RENDER_INTERVAL = 80;
 
 // ═══════════════════════════════════════════════════
 // STATE
@@ -1046,7 +1046,7 @@ async function send() {
     S.abortCtrl=new AbortController();const _tmr=setTimeout(()=>S.abortCtrl?.abort(),45000);const resp=await fetch(url,{
       method:"POST",
       headers:{"Content-Type":"application/json","api-key":AZURE_KEY},signal:S.abortCtrl?.signal,
-      body:JSON.stringify({model:S.model,messages:apiMessages,max_tokens:2048,temperature:0.3,stream:true,top_p:0.9}),
+      body:JSON.stringify({model:S.model,messages:apiMessages,max_tokens:8192,temperature:0.3,stream:true,top_p:0.9}),
     });
     clearTimeout(_tmr);if(!resp.ok){const errText=await resp.text();throw new Error(resp.status+": "+errText);}
     const reader=resp.body.getReader(); const dec=new TextDecoder();
@@ -1056,8 +1056,8 @@ async function send() {
       renderTimer=setTimeout(()=>{
         renderTimer=null;
         cEl.className="msg-bubble streaming";
-        cEl.textContent=aMsg.content;
-        cEl.appendChild(Object.assign(document.createElement("span"),{className:"cursor-blink"}));
+        // Render markdown live so code blocks appear progressively
+        cEl.innerHTML=renderMd(aMsg.content)+'<span class="cursor-blink"></span>';
         scrollBottom(false);
       },STREAM_RENDER_INTERVAL);
     }
