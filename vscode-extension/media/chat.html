@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- version-check removed -->
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -433,24 +433,24 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 <div id="app">
 <!-- SIDEBAR -->
 <div id="sidebar">
-  <button class="sb-close-btn">
+  <button class="sb-close-btn" onclick="toggleSidebar(false)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
     Close
   </button>
   <div class="sb-top">
-    <button class="btn-new">
+    <button class="btn-new" onclick="newChat()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
       New Chat
     </button>
     <div class="search-wrap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input id="search" placeholder="Search chats..." autocomplete="off">
+      <input id="search" placeholder="Search chats..." oninput="renderChatList()" autocomplete="off">
     </div>
   </div>
   <!-- Tabs: Chats | Graphify -->
   <div class="sb-tabs">
-    <button class="sb-tab active" id="tab-chats">💬 Chats</button>
-    <button class="sb-tab" id="tab-graphify">📊 Graphify</button>
+    <button class="sb-tab active" id="tab-chats" onclick="switchSbTab('chats')">💬 Chats</button>
+    <button class="sb-tab" id="tab-graphify" onclick="switchSbTab('graphify')">📊 Graphify</button>
   </div>
   <!-- Chat list -->
   <div class="chat-list" id="chat-list"></div>
@@ -465,18 +465,18 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
       <div class="ginfo-meta" id="ginfo-meta"></div>
     </div>
   </div>
-  <div id="sb-overlay"></div>
+  <div id="sb-overlay" onclick="toggleSidebar(false)"></div>
 </div>
 
 <!-- MAIN -->
 <div id="main">
   <div id="topbar">
-    <button class="topbar-toggle" title="Toggle sidebar">
+    <button class="topbar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
     </button>
     <span class="topbar-title" id="topbar-title">Ooumph AI Chat</span>
     <div class="model-pill-wrap">
-      <div class="model-pill" id="model-pill">
+      <div class="model-pill" onclick="toggleModelDrop()" id="model-pill">
         <span class="dot"></span>
         <span id="model-label">DeepSeek</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
@@ -484,11 +484,11 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
       <div class="model-dropdown" id="model-drop"></div>
     </div>
     <span class="tokens-badge" id="tokens-badge">0 tokens</span>
-    <button class="topbar-icon" title="GitHub Gist Sync" style="font-size:11px;font-weight:bold">GH</button>
-    <button class="topbar-icon" title="System instructions">
+    <button class="topbar-icon" onclick="openGhModal()" title="GitHub Gist Sync" style="font-size:11px;font-weight:bold">GH</button>
+    <button class="topbar-icon" onclick="openInstModal()" title="System instructions">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
     </button>
-    <button class="topbar-icon" title="Help">
+    <button class="topbar-icon" onclick="showHelp()" title="Help">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
     </button>
   </div>
@@ -509,8 +509,8 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
       <div class="skills-tray-header">
         <span class="skills-tray-title">✶ Skills</span>
         <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn-add-skill">+ New Skill</button>
-          <button class="topbar-icon" style="width:26px;height:26px">✕</button>
+          <button class="btn-add-skill" onclick="openSkillPanel(null)">+ New Skill</button>
+          <button class="topbar-icon" onclick="closeTray()" style="width:26px;height:26px">✕</button>
         </div>
       </div>
       <div class="skills-grid" id="skills-grid"></div>
@@ -522,16 +522,18 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
     <div id="composer-wrap">
       <div id="file-chips-bar"></div>
       <div id="composer" ondragover="onDragOver(event)" ondragleave="onDragLeave()" ondrop="onDrop(event)">
-        <textarea id="input" placeholder="Message..." rows="1"></textarea>
+        <textarea id="input" placeholder="Message..." rows="1"
+          onkeydown="onKey(event)"
+          oninput="autoResize(this);updateSend()"></textarea>
         <div class="composer-actions">
-          <button class="compose-btn" title="Attach file">
+          <button class="compose-btn" onclick="document.getElementById('file-input').click()" title="Attach file">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
           </button>
-          <button class="compose-btn" id="sparkle-btn" title="Skills">✶</button>
-          <input type="file" id="file-input" style="display:none" multiple accept="image/*,.pdf,.txt,.md">
+          <button class="compose-btn" id="sparkle-btn" onclick="toggleTray()" title="Skills">✶</button>
+          <input type="file" id="file-input" style="display:none" multiple accept="image/*,.pdf,.txt,.md" onchange="handleFiles(this.files)">
           <span class="compose-spacer"></span>
           <span class="token-hint" id="token-hint">0 est. tokens</span>
-          <button id="send-btn" title="Send (Enter)" >
+          <button id="send-btn" onclick="send()" title="Send (Enter)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
           </button>
         </div>
@@ -544,14 +546,14 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 <div id="skill-panel">
   <div style="display:flex;justify-content:space-between;align-items:center">
     <span class="sp-title" id="sp-title">New Skill</span>
-    <button class="topbar-icon">✕</button>
+    <button class="topbar-icon" onclick="closeSkillPanel()">✕</button>
   </div>
   <div><div class="sp-label">Icon (emoji)</div><input class="sp-input" id="sp-icon" placeholder="💡" maxlength="4"></div>
   <div><div class="sp-label">Name</div><input class="sp-input" id="sp-name" placeholder="Skill name"></div>
   <div><div class="sp-label">Description</div><input class="sp-input" id="sp-desc" placeholder="Short description"></div>
   <div><div class="sp-label">System Prompt</div><textarea class="sp-input sp-textarea" id="sp-prompt" placeholder="Instructions for the AI..."></textarea></div>
-  <button class="btn-save-skill">Save Skill</button>
-  <button class="btn-del-skill" id="btn-del-skill" style="display:none">Delete Skill</button>
+  <button class="btn-save-skill" onclick="saveSkillPanel()">Save Skill</button>
+  <button class="btn-del-skill" id="btn-del-skill" style="display:none" onclick="deleteSkillPanel()">Delete Skill</button>
 </div>
 
 <!-- INST MODAL -->
@@ -561,8 +563,8 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
     <p style="font-size:13px;color:var(--muted)">Set a persistent system prompt for this chat.</p>
     <textarea class="inst-textarea" id="inst-ta" placeholder="You are a helpful assistant..."></textarea>
     <div class="inst-btns">
-      <button class="btn-ghost">Cancel</button>
-      <button class="btn-primary">Save</button>
+      <button class="btn-ghost" onclick="closeInstModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveInst()">Save</button>
     </div>
   </div>
 </div>
@@ -576,23 +578,23 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
     <label style="font-size:12px;font-weight:600;color:var(--muted)">Gist ID (blank to auto-create)</label>
     <input type="text" id="gh-gist-input" class="inst-textarea" style="height:34px;padding:6px 10px;margin:4px 0 10px" placeholder="a1b2c3d4...">
     <div class="inst-btns">
-      <button class="btn-ghost">Cancel</button>
-      <button class="btn-primary">Save &amp; Sync</button>
+      <button class="btn-ghost" onclick="closeGhModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveGhSettings()">Save &amp; Sync</button>
     </div>
   </div>
 </div>
 
 <!-- CONTEXT MENU -->
 <div class="ctx-menu" id="ctx-menu" style="display:none">
-  <button>✏️ Rename</button>
-  <button>☆ Star / Unstar</button>
-  <button class="danger">🗑 Delete</button>
+  <button onclick="ctxRename()">✏️ Rename</button>
+  <button onclick="ctxStar()">☆ Star / Unstar</button>
+  <button class="danger" onclick="ctxDelete()">🗑 Delete</button>
 </div><script>
 // ═══════════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════════
-let   AZURE_BASE = '';
-let   AZURE_KEY  = '';
+let AZURE_BASE = '';
+let AZURE_KEY  = '';
 const API_VER    = "2024-05-01-preview";
 const MODELS     = ["DeepSeek-V4-Flash","DeepSeek-V4-Flash-2","DeepSeek-V4-Flash-3","DeepSeek-V3-0324","DeepSeek-V3.2","Kimi-K2.6"];
 const LS_CHATS   = "ooumph_chats_v3";
@@ -937,7 +939,7 @@ function renderChatList() {
       const act=S.current?.id===c.id?"active":"";
       const mdl=(c.model||"").split("-")[0]||"AI";
       const star=c.starred?"on":"";
-      s+='<div class="chat-item '+act+'" data-id="'+c.id+'"><div class="chat-item-inner" oncontextmenu="showCtx(event,&apos;'+c.id+'&apos;)"><span class="chat-item-title">'+esc(c.title||"New Chat")+'</span><span class="chat-item-meta"><span class="chat-model-tag">'+esc(mdl)+'</span><button class="star-btn '+star+'" title="Star">★</button><button class="del-btn" title="Delete">×</button></span></div></div>';
+      s+='<div class="chat-item '+act+'" data-id="'+c.id+'"><div class="chat-item-inner" onclick="openChat(&apos;'+c.id+'&apos;)" oncontextmenu="showCtx(event,&apos;'+c.id+'&apos;)"><span class="chat-item-title">'+esc(c.title||"New Chat")+'</span><span class="chat-item-meta"><span class="chat-model-tag">'+esc(mdl)+'</span><button class="star-btn '+star+'" onclick="event.stopPropagation();toggleStar(&apos;'+c.id+'&apos;)" title="Star">★</button><button class="del-btn" onclick="event.stopPropagation();quickDeleteChat(&apos;'+c.id+'&apos;)" title="Delete">×</button></span></div></div>';
     });
     return s;
   };
@@ -1177,7 +1179,7 @@ function setModelPill(m) {
 }
 function toggleModelDrop() {
   const d=$("model-drop"); const isOpen=d.classList.toggle("open");
-  if(isOpen) d.innerHTML=MODELS.map(m=>`<div class="model-opt ${m===S.model?"active":""}">${esc(m)}</div>`).join("");
+  if(isOpen) d.innerHTML=MODELS.map(m=>`<div class="model-opt ${m===S.model?"active":""}" onclick="setModelPill('${m}');toggleModelDrop()">${esc(m)}</div>`).join("");
 }
 document.addEventListener("click",e=>{
   if(!e.target.closest(".model-pill-wrap")) $("model-drop").classList.remove("open");
@@ -1210,11 +1212,11 @@ function renderSkillsGrid() {
   const el=$("skills-grid"); if(!el) return;
   el.innerHTML=S.skills.map(sk=>{
     const act=S.activeSkills.has(sk.id)?"active":"";
-    return '<div class="skill-card '+act+'">'+
+    return '<div class="skill-card '+act+'" onclick="toggleSkill('+sk.id+')">'+
       '<div class="sk-icon">'+(sk.icon||"💡")+"</div>"+
       '<div class="sk-name">'+esc(sk.name)+"</div>"+
       '<div class="sk-desc">'+esc(sk.description||"")+"</div>"+
-      '<button style="margin-top:6px;font-size:11px;opacity:0.6;text-decoration:underline">Edit</button>'+
+      '<button style="margin-top:6px;font-size:11px;opacity:0.6;text-decoration:underline" onclick="event.stopPropagation();openSkillPanel('+sk.id+')">Edit</button>'+
       "</div>";
   }).join("");
 }
@@ -1267,7 +1269,7 @@ function renderChips(){
   bar.innerHTML=S.pendingFiles.map((f,i)=>{
     const thumb=f.dataUrl?'<img src="'+f.dataUrl+'" alt="">':"<span class='file-chip-icon'>"+(f.type==="application/pdf"?"📄":"📝")+"</span>";
     const sz=f.size<1024?f.size+"B":f.size<1048576?(f.size/1024).toFixed(1)+"KB":(f.size/1048576).toFixed(1)+"MB";
-    return '<div class="file-chip">'+thumb+'<span class="file-chip-name" title="'+esc(f.name)+'">'+esc(f.name)+'</span><span style="font-size:10px;color:var(--muted)">'+sz+'</span><button class="file-chip-rm">✕</button></div>';
+    return '<div class="file-chip">'+thumb+'<span class="file-chip-name" title="'+esc(f.name)+'">'+esc(f.name)+'</span><span style="font-size:10px;color:var(--muted)">'+sz+'</span><button class="file-chip-rm" onclick="removeFile('+i+')">✕</button></div>';
   }).join("");
 }
 function onDragOver(e){e.preventDefault();$("composer").style.borderColor="var(--accent)";}
@@ -1330,7 +1332,7 @@ async function init() {
   loadChatsLS(); loadSkillsLS();
   var _gd=await loadFromGist();
   if(_gd){try{S.chats=JSON.parse(_gd);}catch(e){}renderChatList();}
-  $("model-drop").innerHTML=MODELS.map(m=>`<div class="model-opt ${m===S.model?"active":""}">${esc(m)}</div>`).join("");
+  $("model-drop").innerHTML=MODELS.map(m=>`<div class="model-opt ${m===S.model?"active":""}" onclick="setModelPill('${m}');toggleModelDrop()">${esc(m)}</div>`).join("");
   let resumed=false;
   try{const lastId=localStorage.getItem(LS_LAST);if(lastId){const c=S.chats.find(x=>x.id===lastId);if(c){openChat(c.id);resumed=true;}}}catch(e){}
   if(!resumed&&S.chats.length) openChat(S.chats[0].id);
@@ -1373,10 +1375,10 @@ function checkAndAddExportButtons(aMsg,cEl){
   const extra=Object.keys(icons).filter(f=>!shown.includes(f));
   const toolbar=document.createElement("div"); toolbar.className="export-toolbar";
   toolbar.innerHTML='<span class="export-label">💾 Save as:</span>'+
-    shown.map(f=>'<button class="export-btn">'+emojs[f]+" "+icons[f]+"</button>").join("")+
-    '<button class="export-btn export-more-btn">&#9662; More</button>'+
+    shown.map(f=>'<button class="export-btn" onclick="doExport('+aMsg.id+','+f+')">'+emojs[f]+" "+icons[f]+"</button>").join("")+
+    '<button class="export-btn export-more-btn" onclick="toggleMoreExports(this,'+aMsg.id+')">&#9662; More</button>'+
     '<div class="export-more-list" style="display:none">'+
-    extra.map(f=>'<button class="export-btn">'+emojs[f]+" "+icons[f]+"</button>").join("")+"</div>";
+    extra.map(f=>'<button class="export-btn" onclick="doExport('+aMsg.id+','+f+')">'+emojs[f]+" "+icons[f]+"</button>").join("")+"</div>";
   cEl.parentNode.insertBefore(toolbar,cEl.nextSibling);
 }
 function toggleMoreExports(btn,id){
@@ -1484,6 +1486,6 @@ async function exportDocx(content,fname){
   downloadBlob(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}),fname+".docx");
 }
 </script>
-<!-- VSC_HANDLERS_PLACEHOLDER -->
+<!--OOUMPH_INJECT-->
 </body>
 </html>

@@ -170,8 +170,7 @@ function patchHtml(html) {
   // Clear default credential values
   html = html.replace(/(let\s+AZURE_BASE\s*=\s*)['"][^'"]*['"]/, "$1''");
   html = html.replace(/(let\s+AZURE_KEY\s*=\s*)['"][^'"]*['"]/, "$1''");
-  // Strip inline event handlers (CSP blocks them)
-  html = html.replace(/\s+on(click|keydown|input|change)="[^"]*"/g, '');
+  // DO NOT strip inline event handlers — keep them working with unsafe-inline CSP
   // Remove disabled from send button
   html = html.replace(/(<button[^>]+id="send-btn"[^>]+)\s+disabled\b/, '$1');
   // Add injection point before last </body>
@@ -186,10 +185,11 @@ function finalise(webview, html, endpoint, apiKey) {
   // Nonce all inline scripts
   html = html.replace(/<script(\s*(?!nonce)[^>]*)>/g, (m, attrs) => '<script' + attrs + ' nonce="' + nonce + '">');
 
-  // CSP
+  // CSP — 'unsafe-inline' required so the app's inline event handlers & scripts work
   const csp = [
     "default-src 'none'",
-    "script-src 'nonce-" + nonce + "' " + webview.cspSource + " https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
+    "script-src 'unsafe-inline' 'unsafe-eval' 'nonce-" + nonce + "' " + webview.cspSource +
+      " https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
     "style-src 'unsafe-inline' " + webview.cspSource + " https://cdnjs.cloudflare.com",
     "font-src https:",
     "img-src data: https: " + webview.cspSource,
@@ -416,50 +416,98 @@ function getBridgeCode() {
   }
 
   // ── Wire event handlers ────────────────────────────────────────────────────
+  var _wireRetries = 0;
   function wire() {
+    // Retry up to 30x with 100ms gaps if app functions not ready yet
+    if (typeof send !== 'function' || typeof onKey !== 'function') {
+      if (_wireRetries++ < 30) { setTimeout(wire, 100); return; }
+    }
+    _wireRetries = 0;
+
     // Set Azure creds
     try { if (window.__EP__)  AZURE_BASE = window.__EP__;  } catch(e) {}
     try { if (window.__KEY__) AZURE_KEY  = window.__KEY__; } catch(e) {}
 
     function on(sel, evt, fn) {
-      var el = typeof sel === 'string' ? document.querySelector(sel) : sel;
-      if (el) el.addEventListener(evt, fn);
+      var els;
+      if (typeof sel === 'string') {
+        // Use querySelectorAll so multi-match selectors like .compose-btn get all elements
+        els = Array.prototype.slice.call(document.querySelectorAll(sel));
+      } else {
+        els = sel ? [sel] : [];
+      }
+      els.forEach(function(el) { el.addEventListener(evt, fn); });
     }
-    on('.topbar-toggle',  'click', function(){ toggleSidebar(false); });
-    on('#sb-overlay',     'click', function(){ toggleSidebar(); });
-    on('.btn-new',        'click', function(){ newChat(); });
-    on('#tab-chats',      'click', function(){ switchSbTab('chats'); });
-    on('#tab-graphify',   'click', function(){ switchSbTab('graphify'); });
-    on('#search',         'input', function(){ renderChatList(); });
-    on('#model-pill',     'click', function(){ toggleModelDrop(); });
-    on('#input',        'keydown', function(e){ onKey(e); });
-    on('#input',          'input', function(){ autoResize(this); updateSend(); });
-    on('#send-btn',       'click', function(){ send(); });
-    on('#sparkle-btn',    'click', function(){ toggleTray(); });
-    on('#file-input',   'change', function(){ handleFiles(this.files); });
-    on('.btn-add-skill',  'click', function(){ openSkillPanel(null); });
-    on('#btn-del-skill',  'click', function(){ deleteSkillPanel(); });
-    on('.ctx-rename',     'click', function(){ ctxRename(); });
-    on('.ctx-star',       'click', function(){ ctxStar(); });
-    on('.ctx-delete',     'click', function(){ ctxDelete(); });
 
-    on('.compose-btn:not(#sparkle-btn)', 'click', function(){
-      var fi = document.getElementById('file-input');
-      if (fi) fi.click();
+    // Only attach our listeners if the element doesn't already have onclick/onkeydown
+    // (inline handlers were kept in the HTML so they fire natively — we add as backup)
+    on('#input', 'keydown', function(e){
+      try { onKey(e); } catch(ex) {}
+    });
+    on('#input', 'input', function(){
+      try { autoResize(this); updateSend(); } catch(ex) {}
+    });
+    on('#send-btn', 'click', function(){
+      try { send(); } catch(ex) {}
+    });
+    on('#sparkle-btn', 'click', function(){
+      try { toggleTray(); } catch(ex) {}
+    });
+    on('#file-input', 'change', function(){
+      try { handleFiles(this.files); } catch(ex) {}
+    });
+    on('.btn-add-skill', 'click', function(){
+      try { openSkillPanel(null); } catch(ex) {}
+    });
+    on('#btn-del-skill', 'click', function(){
+      try { deleteSkillPanel(); } catch(ex) {}
+    });
+    on('.topbar-toggle', 'click', function(){
+      try { toggleSidebar(false); } catch(ex) {}
+    });
+    on('#sb-overlay', 'click', function(){
+      try { toggleSidebar(); } catch(ex) {}
+    });
+    on('.btn-new', 'click', function(){
+      try { newChat(); } catch(ex) {}
+    });
+    on('#tab-chats', 'click', function(){
+      try { switchSbTab('chats'); } catch(ex) {}
+    });
+    on('#tab-graphify', 'click', function(){
+      try { switchSbTab('graphify'); } catch(ex) {}
+    });
+    on('#search', 'input', function(){
+      try { renderChatList(); } catch(ex) {}
+    });
+    on('#model-pill', 'click', function(){
+      try { toggleModelDrop(); } catch(ex) {}
+    });
+    on('.ctx-rename', 'click', function(){ try { ctxRename(); } catch(ex) {} });
+    on('.ctx-star',   'click', function(){ try { ctxStar();   } catch(ex) {} });
+    on('.ctx-delete', 'click', function(){ try { ctxDelete(); } catch(ex) {} });
+
+    // Attach-file button (exclude sparkle)
+    document.querySelectorAll('.compose-btn').forEach(function(b) {
+      if (b.id === 'sparkle-btn') return;
+      b.addEventListener('click', function(){
+        var fi = document.getElementById('file-input');
+        if (fi) fi.click();
+      });
     });
 
     var icons = document.querySelectorAll('.topbar-icon');
-    if (icons[0]) icons[0].addEventListener('click', function(){ openGhModal(); });
-    if (icons[1]) icons[1].addEventListener('click', function(){ openInstModal(); });
-    if (icons[2]) icons[2].addEventListener('click', function(){ showHelp(); });
+    if (icons[0]) icons[0].addEventListener('click', function(){ try { openGhModal();   } catch(ex) {} });
+    if (icons[1]) icons[1].addEventListener('click', function(){ try { openInstModal(); } catch(ex) {} });
+    if (icons[2]) icons[2].addEventListener('click', function(){ try { showHelp();      } catch(ex) {} });
 
     var ib = document.querySelectorAll('.inst-modal button');
-    if (ib[0]) ib[0].addEventListener('click', function(){ closeInstModal(); });
-    if (ib[1]) ib[1].addEventListener('click', function(){ saveInst(); });
+    if (ib[0]) ib[0].addEventListener('click', function(){ try { closeInstModal(); } catch(ex) {} });
+    if (ib[1]) ib[1].addEventListener('click', function(){ try { saveInst();       } catch(ex) {} });
 
     var gb = document.querySelectorAll('.gh-modal button');
-    if (gb[0]) gb[0].addEventListener('click', function(){ closeGhModal(); });
-    if (gb[1]) gb[1].addEventListener('click', function(){ saveGhSettings(); });
+    if (gb[0]) gb[0].addEventListener('click', function(){ try { closeGhModal();    } catch(ex) {} });
+    if (gb[1]) gb[1].addEventListener('click', function(){ try { saveGhSettings();  } catch(ex) {} });
 
     // VS Code integration init
     mkBar();
