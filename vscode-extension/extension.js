@@ -342,28 +342,37 @@ class OoumphViewProvider {
 }
 
 // ---------------------------------------------------------------------------
-// Build HTML — cache-first, background refresh
+// Build HTML — bundled file first (instant), background refresh from web
 // ---------------------------------------------------------------------------
 async function buildWebviewHtml(webview, context) {
-  // Always try cache first so webview loads instantly
+  // 1. Try the globalStorage cache (most recent downloaded version)
   let html = loadCachedSync(context);
 
+  // 2. Fall back to the bundled media/chat.html shipped inside the .vsix
   if (!html) {
-    // No cache at all — must download (show loading until done)
+    try {
+      const bundledPath = path.join(context.extensionUri.fsPath, 'media', 'chat.html');
+      if (fs.existsSync(bundledPath)) {
+        html = fs.readFileSync(bundledPath, 'utf8');
+      }
+    } catch (_) {}
+  }
+
+  // 3. If somehow neither exists, download synchronously (first-ever install on slow net)
+  if (!html) {
     try {
       const raw = await download(SOURCE_URL);
       html = patchHtml(raw);
       saveCache(context, html).catch(() => {});
     } catch (e) {
-      throw new Error('Could not download chat UI: ' + e.message +
-        '. Check internet connection and run Developer: Reload Window.');
+      throw new Error('Chat UI missing. Reinstall the extension or check internet: ' + e.message);
     }
-  } else {
-    // Have cache — refresh in background silently
-    download(SOURCE_URL).then(raw => {
-      saveCache(context, patchHtml(raw)).catch(() => {});
-    }).catch(() => {});
   }
+
+  // 4. Background refresh — update cache silently so next load gets fresh HTML
+  download(SOURCE_URL).then(raw => {
+    saveCache(context, patchHtml(raw)).catch(() => {});
+  }).catch(() => {});
 
   const endpoint = (await context.secrets.get(SECRET_ENDPOINT)) || '';
   const key      = (await context.secrets.get(SECRET_KEY))      || '';
@@ -742,7 +751,14 @@ function download(url) {
   });
 }
 
-function getWebviewOptions() { return { enableScripts: true }; }
+function getWebviewOptions(extensionUri) {
+  return {
+    enableScripts: true,
+    localResourceRoots: extensionUri
+      ? [vscode.Uri.joinPath(extensionUri, 'media')]
+      : []
+  };
+}
 
 function getLoadingHtml() {
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
