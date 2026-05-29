@@ -2,7 +2,7 @@
   "name": "ooumph-ai-chat",
   "displayName": "Ooumph AI Chat",
   "description": "Azure DeepSeek AI Chat — full VS Code workspace context like Claude Code",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "publisher": "ooumph",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["AI", "Chat", "Other"],

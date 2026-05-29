@@ -42,7 +42,9 @@ function activate(context) {
     context.subscriptions.push(
       vscode.window.onDidChangeActiveTextEditor(() => broadcastCtx()),
       vscode.window.onDidChangeTextEditorSelection(() => broadcastCtx()),
-      vscode.workspace.onDidSaveTextDocument(() => { wsFiles = readWsFiles(); broadcastWs(); })
+      vscode.workspace.onDidSaveTextDocument(() => { wsFiles = readWsFiles(); broadcastWs(); }),
+      vscode.workspace.onDidChangeWorkspaceFolders(() => { wsFiles = readWsFiles(); broadcastWs(); }),
+      vscode.workspace.onDidOpenTextDocument(() => { wsFiles = readWsFiles(); broadcastWs(); })
     );
 
     // Command: open panel
@@ -275,20 +277,31 @@ function getBridgeCode() {
   // array directly, no JSON parse/stringify, no arguments-object tricks.
   function buildSysContent() {
     var lines = [SYS, ''];
+
+    // Always include the active file's FULL content so AI can read it
     if (ctx.hasContext) {
-      lines.push('## Active file: ' + ctx.relPath +
+      lines.push('## Currently open file: ' + ctx.relPath +
         ' (' + ctx.language + ', ' + ctx.lineCount + ' lines, cursor line ' + ctx.cursorLine + ')');
+      if (ctx.content) {
+        lines.push(FENCE + ctx.language);
+        lines.push(ctx.content);
+        lines.push(FENCE);
+      }
       if (ctx.selection) {
-        lines.push('Selected text:');
+        lines.push('User selected:');
         lines.push(FENCE + ctx.language);
         lines.push(ctx.selection);
         lines.push(FENCE);
       }
     }
-    if (wsf.length) {
+
+    // All other workspace files
+    var shownPaths = ctx.hasContext ? [ctx.relPath] : [];
+    var others = wsf.filter(function(f) { return shownPaths.indexOf(f.relPath) === -1; });
+    if (others.length) {
       lines.push('');
-      lines.push('## Workspace: ' + wsf.length + ' files');
-      wsf.forEach(function(f) {
+      lines.push('## Other workspace files (' + others.length + '):');
+      others.forEach(function(f) {
         lines.push('');
         lines.push('### ' + f.relPath);
         lines.push(FENCE + f.language);
@@ -563,52 +576,36 @@ function hookMessages(webview, context) {
         vscode.window.showInformationMessage('Ooumph: refreshed — ' + wsFiles.length + ' files');
         break;
       case 'applyEdit': {
-        // Build file pick list: open editors first, then workspace files
-        const openDocs = vscode.workspace.textDocuments
-          .filter(d => !d.isUntitled && d.uri.scheme === 'file')
-          .map(d => ({
-            label: '$(file) ' + path.basename(d.fileName),
-            description: vscode.workspace.asRelativePath(d.fileName),
-            uri: d.uri, isOpen: true
-          }));
-        const wsItems = wsFiles
-          .filter(f => !openDocs.find(o => o.description === f.relPath))
-          .map(f => ({
-            label: '$(file-code) ' + path.basename(f.relPath),
-            description: f.relPath,
-            uri: vscode.Uri.file(resolveWs(f.relPath) || ''), isOpen: false
-          })).filter(f => f.uri.fsPath);
-
-        const items = [
-          ...(openDocs.length ? [{ label: '── Open editors', kind: vscode.QuickPickItemKind.Separator }] : []),
-          ...openDocs,
-          ...(wsItems.length  ? [{ label: '── Workspace files', kind: vscode.QuickPickItemKind.Separator }] : []),
-          ...wsItems
-        ];
-
-        const pick = await vscode.window.showQuickPick(items, {
-          title: 'Ooumph: Apply code to which file?',
-          placeHolder: 'Select a file to apply the AI code to…'
+        // Step 1: pick a file using VS Code's native dialog
+        const wf = vscode.workspace.workspaceFolders;
+        const uris = await vscode.window.showOpenDialog({
+          title: 'Apply AI code to which file?',
+          openLabel: 'Apply to this file',
+          canSelectMany: false,
+          canSelectFiles: true,
+          defaultUri: wf && wf.length ? wf[0].uri : undefined
         });
-        if (!pick || !pick.uri) break;
+        if (!uris || !uris.length) break;
 
-        const doc = await vscode.workspace.openTextDocument(pick.uri);
+        // Step 2: open it and ask confirmation
+        const doc    = await vscode.workspace.openTextDocument(uris[0]);
         const editor = await vscode.window.showTextDocument(doc);
+        const fname  = path.basename(doc.fileName);
 
-        // Ask for confirmation showing the file name
         const confirm = await vscode.window.showWarningMessage(
-          'Apply AI code to ' + path.basename(doc.fileName) + '? This will replace the file contents.',
+          `Apply AI-generated code to "${fname}"? This replaces the file.`,
           { modal: true }, 'Apply', 'Cancel'
         );
         if (confirm !== 'Apply') break;
 
+        // Step 3: replace full file (or selection if active)
         await editor.edit(eb => {
           const sel = editor.selection;
           if (!sel.isEmpty) eb.replace(sel, msg.code);
           else eb.replace(new vscode.Range(0, 0, doc.lineCount, 0), msg.code);
         });
-        postMsg(webview, { type: 'applyDone', file: path.basename(doc.fileName) });
-        vscode.window.showInformationMessage('Ooumph: applied to ' + path.basename(doc.fileName));
+        postMsg(webview, { type: 'applyDone', file: fname });
+        vscode.window.showInformationMessage('Ooumph: applied to ' + fname);
         wsFiles = readWsFiles();
         break;
       }
