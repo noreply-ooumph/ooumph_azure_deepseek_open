@@ -28,88 +28,118 @@ let workspaceFiles = [];   // [{relPath, language, content}]  cached on host sid
 // Activation
 // ---------------------------------------------------------------------------
 function activate(context) {
-  const provider = new OoumphViewProvider(context);
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      OoumphViewProvider.viewType, provider,
-      { webviewOptions: { retainContextWhenHidden: true } }
-    )
-  );
+  try {
+    // Register sidebar view provider
+    const provider = new OoumphViewProvider(context);
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(
+        OoumphViewProvider.viewType, provider,
+        { webviewOptions: { retainContextWhenHidden: true } }
+      )
+    );
 
-  context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor(() => broadcastContext())
-  );
-  context.subscriptions.push(
-    vscode.window.onDidChangeTextEditorSelection(() => broadcastContext())
-  );
-  // Re-read workspace when files are saved
-  context.subscriptions.push(
-    vscode.workspace.onDidSaveTextDocument(() => {
-      workspaceFiles = readWorkspaceFiles();
-      broadcastWorkspace();
-    })
-  );
+    // Editor context listeners
+    context.subscriptions.push(
+      vscode.window.onDidChangeActiveTextEditor(() => { try { broadcastContext(); } catch (_) {} })
+    );
+    context.subscriptions.push(
+      vscode.window.onDidChangeTextEditorSelection(() => { try { broadcastContext(); } catch (_) {} })
+    );
+    context.subscriptions.push(
+      vscode.workspace.onDidSaveTextDocument(() => {
+        try { workspaceFiles = readWorkspaceFiles(); broadcastWorkspace(); } catch (_) {}
+      })
+    );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand('ooumph.openChat', async () => {
-      if (panel) { panel.reveal(vscode.ViewColumn.Beside); return; }
-      panel = vscode.window.createWebviewPanel(
-        'ooumphChat', 'Ooumph AI Chat',
-        vscode.ViewColumn.Beside,
-        getWebviewOptions(context.extensionUri)
-      );
-      panel.webview.html = getLoadingHtml();
-      try {
-        panel.webview.html = await buildWebviewHtml(panel.webview, context);
-      } catch (e) {
-        panel.webview.html = getErrorHtml(e.message);
+    // Command: open chat panel
+    context.subscriptions.push(
+      vscode.commands.registerCommand('ooumph.openChat', async () => {
+        try {
+          if (panel) { panel.reveal(vscode.ViewColumn.Beside); return; }
+          panel = vscode.window.createWebviewPanel(
+            'ooumphChat', 'Ooumph AI Chat',
+            vscode.ViewColumn.Beside,
+            getWebviewOptions(context.extensionUri)
+          );
+          panel.webview.html = getLoadingHtml();
+          try {
+            panel.webview.html = await buildWebviewHtml(panel.webview, context);
+          } catch (e) {
+            panel.webview.html = getErrorHtml(String(e));
+          }
+          wireMessageHandler(panel.webview, context);
+          panel.onDidDispose(() => { panel = undefined; }, null, context.subscriptions);
+        } catch (e) {
+          vscode.window.showErrorMessage('Ooumph: ' + String(e));
+        }
+      })
+    );
+
+    // Command: set credentials
+    context.subscriptions.push(
+      vscode.commands.registerCommand('ooumph.setCredentials', async () => {
+        try {
+          const endpoint = await vscode.window.showInputBox({
+            title: 'Ooumph — Azure Endpoint',
+            prompt: 'Paste your Azure OpenAI endpoint URL',
+            placeHolder: 'https://YOUR-RESOURCE.openai.azure.com/',
+            value: (await context.secrets.get(SECRET_ENDPOINT)) || '',
+            ignoreFocusOut: true
+          });
+          if (endpoint === undefined) return;
+          const key = await vscode.window.showInputBox({
+            title: 'Ooumph — Azure API Key',
+            prompt: 'Paste your Azure OpenAI API key',
+            password: true, ignoreFocusOut: true
+          });
+          if (key === undefined) return;
+          await context.secrets.store(SECRET_ENDPOINT, endpoint.trim());
+          await context.secrets.store(SECRET_KEY, key.trim());
+          bustCache(context);
+          vscode.window.showInformationMessage('Ooumph: credentials saved. Reloading...');
+          const reload = async (wv) => {
+            wv.html = getLoadingHtml();
+            try { wv.html = await buildWebviewHtml(wv, context); wireMessageHandler(wv, context); }
+            catch (e) { wv.html = getErrorHtml(String(e)); }
+          };
+          if (panel)       reload(panel.webview);
+          if (sidebarView) reload(sidebarView.webview);
+        } catch (e) {
+          vscode.window.showErrorMessage('Ooumph credentials error: ' + String(e));
+        }
+      })
+    );
+
+    // Command: refresh workspace
+    context.subscriptions.push(
+      vscode.commands.registerCommand('ooumph.refreshWorkspace', () => {
+        try {
+          workspaceFiles = readWorkspaceFiles();
+          broadcastWorkspace();
+          vscode.window.showInformationMessage('Ooumph: workspace refreshed (' + workspaceFiles.length + ' files)');
+        } catch (e) {
+          vscode.window.showErrorMessage('Ooumph refresh error: ' + String(e));
+        }
+      })
+    );
+
+    // Prompt for credentials on first install
+    context.secrets.get(SECRET_KEY).then(k => {
+      if (!k) {
+        vscode.window.showInformationMessage(
+          'Ooumph AI Chat: set your Azure credentials to start chatting.',
+          'Set Credentials'
+        ).then(s => { if (s === 'Set Credentials') vscode.commands.executeCommand('ooumph.setCredentials'); });
       }
-      wireMessageHandler(panel.webview, context);
-      panel.onDidDispose(() => { panel = undefined; }, null, context.subscriptions);
-    })
-  );
+    }).catch(() => {});
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand('ooumph.setCredentials', async () => {
-      const endpoint = await vscode.window.showInputBox({
-        title: 'Ooumph — Azure Endpoint',
-        prompt: 'Paste your Azure OpenAI endpoint URL',
-        placeHolder: 'https://YOUR-RESOURCE.openai.azure.com/',
-        value: (await context.secrets.get(SECRET_ENDPOINT)) || '',
-        ignoreFocusOut: true
-      });
-      if (endpoint === undefined) return;
-      const key = await vscode.window.showInputBox({
-        title: 'Ooumph — Azure API Key',
-        prompt: 'Paste your Azure OpenAI API key',
-        password: true, ignoreFocusOut: true
-      });
-      if (key === undefined) return;
-      await context.secrets.store(SECRET_ENDPOINT, endpoint.trim());
-      await context.secrets.store(SECRET_KEY, key.trim());
-      bustCache(context);
-      vscode.window.showInformationMessage('Ooumph: credentials saved. Reloading...');
-      const reload = async (wv) => {
-        wv.html = getLoadingHtml();
-        try { wv.html = await buildWebviewHtml(wv, context); wireMessageHandler(wv, context); }
-        catch (e) { wv.html = getErrorHtml(e.message); }
-      };
-      if (panel)       reload(panel.webview);
-      if (sidebarView) reload(sidebarView.webview);
-    })
-  );
+    // Pre-load workspace files (non-blocking)
+    try { workspaceFiles = readWorkspaceFiles(); } catch (_) {}
 
-  context.secrets.get(SECRET_KEY).then(k => {
-    if (!k) {
-      vscode.window.showInformationMessage(
-        'Ooumph AI Chat: set your Azure credentials to start chatting.',
-        'Set Credentials'
-      ).then(s => { if (s === 'Set Credentials') vscode.commands.executeCommand('ooumph.setCredentials'); });
-    }
-  });
-
-  // Pre-load workspace files at startup
-  workspaceFiles = readWorkspaceFiles();
+  } catch (err) {
+    // Last-resort: show error so user knows what went wrong
+    vscode.window.showErrorMessage('Ooumph failed to activate: ' + String(err));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -331,13 +361,20 @@ class OoumphViewProvider {
   static viewType = 'ooumph.chatView';
   constructor(ctx) { this._ctx = ctx; }
   async resolveWebviewView(v) {
-    sidebarView = v;
-    v.webview.options = getWebviewOptions(this._ctx.extensionUri);
-    v.webview.html = getLoadingHtml();
-    try { v.webview.html = await buildWebviewHtml(v.webview, this._ctx); }
-    catch (e) { v.webview.html = getErrorHtml(e.message); }
-    wireMessageHandler(v.webview, this._ctx);
-    v.onDidDispose(() => { sidebarView = undefined; });
+    try {
+      sidebarView = v;
+      v.webview.options = getWebviewOptions(this._ctx.extensionUri);
+      v.webview.html = getLoadingHtml();
+      try {
+        v.webview.html = await buildWebviewHtml(v.webview, this._ctx);
+      } catch (e) {
+        v.webview.html = getErrorHtml(String(e));
+      }
+      wireMessageHandler(v.webview, this._ctx);
+      v.onDidDispose(() => { sidebarView = undefined; });
+    } catch (err) {
+      try { v.webview.html = getErrorHtml(String(err)); } catch (_) {}
+    }
   }
 }
 
