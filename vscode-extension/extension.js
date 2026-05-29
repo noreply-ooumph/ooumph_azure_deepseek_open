@@ -273,52 +273,62 @@ function getBridgeCode() {
     }
   });
 
-  // ── Intercept fetch — inject context invisibly ─────────────────────────────
-  var _fetch = window.fetch;
-  window.fetch = function(url, opts) {
-    try {
-      var s = String(url || '');
-      var isAzure = s.indexOf('openai.azure.com') > -1 ||
-        (typeof AZURE_BASE !== 'undefined' && AZURE_BASE && s.indexOf(AZURE_BASE) > -1);
-      if (isAzure && ctxOn && opts && opts.body) {
-        var body = JSON.parse(opts.body);
-        if (body && Array.isArray(body.messages)) {
-          var lines = [SYS, ''];
-          if (ctx.hasContext) {
-            lines.push('## Active file: ' + ctx.relPath + ' (' + ctx.language + ', ' + ctx.lineCount + ' lines, cursor:' + ctx.cursorLine + ')');
-            if (ctx.selection) {
-              lines.push('Selected:\\n' + FENCE + ctx.language + '\\n' + ctx.selection + '\\n' + FENCE);
-            }
-          }
-          if (wsf.length) {
-            lines.push('\\n## Workspace files (' + wsf.length + ' total):');
-            wsf.forEach(function(f) {
-              lines.push('\\n### ' + f.relPath);
-              lines.push(FENCE + f.language);
-              var numbered = f.content.split('\\n').map(function(l, i) { return (i+1) + '  ' + l; }).join('\\n');
-              lines.push(numbered);
-              lines.push(FENCE);
-            });
-          }
-          var sysMsgContent = lines.join('\\n');
-          var idx = body.messages.findIndex(function(m) {
-            return m.role === 'system' && m.content && m.content.indexOf('Ooumph AI') > -1;
-          });
-          if (idx >= 0) {
-            body.messages[idx].content = sysMsgContent;
-          } else {
-            var at = 0;
-            while (at < body.messages.length && body.messages[at].role === 'system') at++;
-            body.messages.splice(at, 0, { role: 'system', content: sysMsgContent });
-          }
-          opts = Object.assign({}, opts, { body: JSON.stringify(body) });
-        }
+  // ── Override buildApiMessages — inject workspace context directly ────────────
+  // This is more reliable than intercepting fetch: we operate on the messages
+  // array directly, no JSON parse/stringify, no arguments-object tricks.
+  function buildSysContent() {
+    var lines = [SYS, ''];
+    if (ctx.hasContext) {
+      lines.push('## Active file: ' + ctx.relPath +
+        ' (' + ctx.language + ', ' + ctx.lineCount + ' lines, cursor line ' + ctx.cursorLine + ')');
+      if (ctx.selection) {
+        lines.push('Selected text:');
+        lines.push(FENCE + ctx.language);
+        lines.push(ctx.selection);
+        lines.push(FENCE);
       }
-    } catch(e) {}
-    // Use call(this, url, opts) NOT apply(this, arguments) — arguments holds
-    // the original opts reference and ignores our reassignment above.
-    return _fetch.call(this, url, opts);
-  };
+    }
+    if (wsf.length) {
+      lines.push('');
+      lines.push('## Workspace: ' + wsf.length + ' files');
+      wsf.forEach(function(f) {
+        lines.push('');
+        lines.push('### ' + f.relPath);
+        lines.push(FENCE + f.language);
+        var numbered = f.content.split('\\n').map(function(l, i) {
+          return (i + 1) + '\\t' + l;
+        }).join('\\n');
+        lines.push(numbered);
+        lines.push(FENCE);
+      });
+    }
+    return lines.join('\\n');
+  }
+
+  // Wait for buildApiMessages to be defined, then override it
+  function hookBuildApi() {
+    if (typeof buildApiMessages !== 'function') {
+      setTimeout(hookBuildApi, 50); return;
+    }
+    var _orig = buildApiMessages;
+    buildApiMessages = function(filesSnap) {
+      var msgs = _orig(filesSnap);
+      if (!ctxOn) return msgs;
+      var sysContent = buildSysContent();
+      // Replace existing system msg or prepend a new one
+      var sysIdx = -1;
+      for (var i = 0; i < msgs.length; i++) {
+        if (msgs[i].role === 'system') { sysIdx = i; break; }
+      }
+      if (sysIdx >= 0) {
+        msgs[sysIdx] = { role: 'system', content: sysContent + (msgs[sysIdx].content ? '\\n\\n' + msgs[sysIdx].content : '') };
+      } else {
+        msgs.unshift({ role: 'system', content: sysContent });
+      }
+      return msgs;
+    };
+  }
+  hookBuildApi();
 
   // ── Apply / Insert buttons on code blocks ─────────────────────────────────
   function addButtons(root) {
