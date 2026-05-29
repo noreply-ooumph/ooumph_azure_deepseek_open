@@ -104,6 +104,9 @@ function activate(context) {
       }
     }).catch(() => {});
 
+    // Bust old globalStorage HTML cache (may contain stripped handlers from v1.0.4)
+    bustCache(context);
+
     // Index workspace
     wsFiles = readWsFiles();
 
@@ -135,24 +138,25 @@ function webviewOpts(extUri) {
 
 // ─── Build Webview HTML ───────────────────────────────────────────────────────
 async function buildHtml(webview, context) {
-  // 1. Try globalStorage cache
-  let html = readCache(context);
+  // 1. Always prefer bundled media/chat.html — it matches the current extension
+  //    version and must never be stale-cached from a previous install.
+  let html = null;
+  const bundled = path.join(context.extensionUri.fsPath, 'media', 'chat.html');
+  if (fs.existsSync(bundled)) html = fs.readFileSync(bundled, 'utf8');
 
-  // 2. Fall back to bundled media/chat.html
-  if (!html) {
-    const bundled = path.join(context.extensionUri.fsPath, 'media', 'chat.html');
-    if (fs.existsSync(bundled)) html = fs.readFileSync(bundled, 'utf8');
-  }
-
-  // 3. Last resort: download
+  // 2. Fall back to download if bundled file missing
   if (!html) {
     const raw = await fetchUrl(SOURCE_URL);
     html = patchHtml(raw);
-    writeCache(context, html);
   }
 
-  // Background refresh
-  fetchUrl(SOURCE_URL).then(r => writeCache(context, patchHtml(r))).catch(() => {});
+  // Background refresh — updates bundled cache for next launch
+  fetchUrl(SOURCE_URL).then(r => {
+    try {
+      const p = bundled;
+      fs.writeFileSync(p, patchHtml(r), 'utf8');
+    } catch(_) {}
+  }).catch(() => {});
 
   // Inject credentials + security
   const ep  = (await context.secrets.get(SECRET_ENDPOINT)) || '';
