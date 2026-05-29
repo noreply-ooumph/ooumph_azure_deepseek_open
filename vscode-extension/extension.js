@@ -315,7 +315,9 @@ function getBridgeCode() {
         }
       }
     } catch(e) {}
-    return _fetch.apply(this, arguments);
+    // Use call(this, url, opts) NOT apply(this, arguments) — arguments holds
+    // the original opts reference and ignores our reassignment above.
+    return _fetch.call(this, url, opts);
   };
 
   // ── Apply / Insert buttons on code blocks ─────────────────────────────────
