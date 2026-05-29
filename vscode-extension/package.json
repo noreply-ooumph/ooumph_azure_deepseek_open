@@ -2,18 +2,25 @@
   "name": "ooumph-ai-chat",
   "displayName": "Ooumph AI Chat",
   "description": "Azure DeepSeek AI Chat — full VS Code workspace context like Claude Code",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "ooumph",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["AI", "Chat", "Other"],
   "keywords": ["ai", "chat", "azure", "deepseek", "openai", "assistant"],
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "*",
+    "onStartupFinished",
+    "onView:ooumph.chatView",
+    "onCommand:ooumph.openChat",
+    "onCommand:ooumph.setCredentials",
+    "onCommand:ooumph.refreshWorkspace"
+  ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
-      { "command": "ooumph.openChat",        "title": "Ooumph: Open AI Chat",          "icon": "$(comment-discussion)" },
-      { "command": "ooumph.setCredentials",  "title": "Ooumph: Set Azure Credentials"  },
-      { "command": "ooumph.refreshWorkspace","title": "Ooumph: Refresh Workspace Index" }
+      { "command": "ooumph.openChat",         "title": "Ooumph: Open AI Chat",           "icon": "$(comment-discussion)" },
+      { "command": "ooumph.setCredentials",   "title": "Ooumph: Set Azure Credentials"   },
+      { "command": "ooumph.refreshWorkspace", "title": "Ooumph: Refresh Workspace Index" }
     ],
     "viewsContainers": {
       "activitybar": [
