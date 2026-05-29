@@ -331,33 +331,38 @@ function getBridgeCode() {
   hookBuildApi();
 
   // ── Apply / Insert buttons on code blocks ─────────────────────────────────
-  function addButtons(root) {
-    (root || document).querySelectorAll('pre code').forEach(function(block) {
+  // Always scan the full document — the dataset.ob guard prevents duplicates.
+  // (Passing root to querySelectorAll('pre code') fails when root IS the <pre>
+  //  because there's no nested <pre> inside it.)
+  function addButtons() {
+    document.querySelectorAll('pre code').forEach(function(block) {
       if (block.dataset.ob) return;
       block.dataset.ob = '1';
       var row = document.createElement('div');
-      row.style.cssText = 'display:flex;gap:5px;margin:3px 0 2px;flex-wrap:wrap;';
-      function btn(label, bg, fn) {
+      row.style.cssText = 'display:flex;gap:5px;margin:4px 0 3px;flex-wrap:wrap;';
+      function mkBtn(label, bg, fn) {
         var b = document.createElement('button');
         b.textContent = label;
-        b.style.cssText = 'padding:2px 9px;border-radius:3px;font-size:11px;cursor:pointer;border:none;color:#fff;background:' + bg + ';';
+        b.style.cssText = 'padding:3px 10px;border-radius:4px;font-size:11px;cursor:pointer;' +
+          'border:none;color:#fff;background:' + bg + ';font-weight:500;';
         b.onclick = fn;
         return b;
       }
-      row.appendChild(btn('⚡ Apply to File', '#c96442', function() {
+      row.appendChild(mkBtn('⚡ Apply to File', '#c96442', function() {
         if (api) api.postMessage({ type: 'applyEdit', code: block.textContent });
       }));
-      row.appendChild(btn('↵ Insert at Cursor', '#3a3a3a', function() {
+      row.appendChild(mkBtn('↵ Insert at Cursor', '#3a5a7a', function() {
         if (api) api.postMessage({ type: 'insertAtCursor', code: block.textContent });
       }));
       block.parentNode.insertBefore(row, block);
     });
     // Make file:line refs clickable
-    (root || document).querySelectorAll('p,li,td').forEach(function(el) {
+    document.querySelectorAll('p,li,td').forEach(function(el) {
       if (el.dataset.ll) return;
       el.dataset.ll = '1';
       el.innerHTML = el.innerHTML.replace(/([a-zA-Z0-9_\-./]+\.[a-z]{1,6}):(\d+)/g, function(_, f, l) {
-        return '<a href="#" style="color:#c96442;font-family:monospace;text-decoration:underline;" data-f="' + f + '" data-l="' + l + '">' + f + ':' + l + '</a>';
+        return '<a href="#" style="color:#c96442;font-family:monospace;text-decoration:underline;" data-f="' +
+          f + '" data-l="' + l + '">' + f + ':' + l + '</a>';
       });
     });
     document.querySelectorAll('a[data-f]').forEach(function(a) {
@@ -369,8 +374,11 @@ function getBridgeCode() {
       });
     });
   }
-  new MutationObserver(function(ms) {
-    ms.forEach(function(m) { m.addedNodes.forEach(function(n) { if (n.nodeType===1) addButtons(n); }); });
+  // Run on every DOM mutation — debounced to avoid thrashing
+  var _btnTimer = null;
+  new MutationObserver(function() {
+    clearTimeout(_btnTimer);
+    _btnTimer = setTimeout(addButtons, 120);
   }).observe(document.body, { childList: true, subtree: true });
 
   // ── Context bar ────────────────────────────────────────────────────────────
@@ -555,20 +563,52 @@ function hookMessages(webview, context) {
         vscode.window.showInformationMessage('Ooumph: refreshed — ' + wsFiles.length + ' files');
         break;
       case 'applyEdit': {
-        const ed = vscode.window.activeTextEditor;
-        if (!ed) { vscode.window.showWarningMessage('Ooumph: no active editor'); break; }
-        if (msg.filePath) {
-          const abs = resolveWs(msg.filePath);
-          if (abs) { const d = await vscode.workspace.openTextDocument(abs); await vscode.window.showTextDocument(d); }
-        }
-        const e2 = vscode.window.activeTextEditor;
-        await e2.edit(eb => {
-          const sel = e2.selection;
-          if (!sel.isEmpty) eb.replace(sel, msg.code);
-          else eb.replace(new vscode.Range(0,0,e2.document.lineCount,0), msg.code);
+        // Build file pick list: open editors first, then workspace files
+        const openDocs = vscode.workspace.textDocuments
+          .filter(d => !d.isUntitled && d.uri.scheme === 'file')
+          .map(d => ({
+            label: '$(file) ' + path.basename(d.fileName),
+            description: vscode.workspace.asRelativePath(d.fileName),
+            uri: d.uri, isOpen: true
+          }));
+        const wsItems = wsFiles
+          .filter(f => !openDocs.find(o => o.description === f.relPath))
+          .map(f => ({
+            label: '$(file-code) ' + path.basename(f.relPath),
+            description: f.relPath,
+            uri: vscode.Uri.file(resolveWs(f.relPath) || ''), isOpen: false
+          })).filter(f => f.uri.fsPath);
+
+        const items = [
+          ...(openDocs.length ? [{ label: '── Open editors', kind: vscode.QuickPickItemKind.Separator }] : []),
+          ...openDocs,
+          ...(wsItems.length  ? [{ label: '── Workspace files', kind: vscode.QuickPickItemKind.Separator }] : []),
+          ...wsItems
+        ];
+
+        const pick = await vscode.window.showQuickPick(items, {
+          title: 'Ooumph: Apply code to which file?',
+          placeHolder: 'Select a file to apply the AI code to…'
         });
-        postMsg(webview, { type: 'applyDone', file: path.basename(e2.document.fileName) });
-        vscode.window.showInformationMessage('Ooumph: applied to ' + path.basename(e2.document.fileName));
+        if (!pick || !pick.uri) break;
+
+        const doc = await vscode.workspace.openTextDocument(pick.uri);
+        const editor = await vscode.window.showTextDocument(doc);
+
+        // Ask for confirmation showing the file name
+        const confirm = await vscode.window.showWarningMessage(
+          'Apply AI code to ' + path.basename(doc.fileName) + '? This will replace the file contents.',
+          { modal: true }, 'Apply', 'Cancel'
+        );
+        if (confirm !== 'Apply') break;
+
+        await editor.edit(eb => {
+          const sel = editor.selection;
+          if (!sel.isEmpty) eb.replace(sel, msg.code);
+          else eb.replace(new vscode.Range(0, 0, doc.lineCount, 0), msg.code);
+        });
+        postMsg(webview, { type: 'applyDone', file: path.basename(doc.fileName) });
+        vscode.window.showInformationMessage('Ooumph: applied to ' + path.basename(doc.fileName));
         wsFiles = readWsFiles();
         break;
       }
