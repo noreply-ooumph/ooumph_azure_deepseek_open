@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260527-8';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260529-1';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -127,9 +127,35 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .msg-bubble blockquote{border-left:3px solid var(--accent);padding-left:12px;color:var(--muted);margin:8px 0}
 .msg-bubble .hljs{background:transparent}
 .msg-bubble.streaming{white-space:pre-wrap;word-break:break-word}
-.msg-meta{font-size:11px;color:var(--muted);padding:0 4px}
+.msg-meta{font-size:11px;color:var(--muted);padding:0 4px;display:flex;align-items:center;gap:6px}
 .cursor-blink{display:inline-block;width:2px;height:14px;background:var(--accent);margin-left:2px;animation:blink 0.7s step-end infinite;vertical-align:text-bottom}
 @keyframes blink{50%{opacity:0}}
+
+/* ─── THINKING DOTS ─── */
+.thinking-dots{display:inline-flex;gap:5px;align-items:center;padding:4px 2px}
+.thinking-dots span{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:dot-bounce 1.3s infinite ease-in-out both}
+.thinking-dots span:nth-child(1){animation-delay:-0.32s}
+.thinking-dots span:nth-child(2){animation-delay:-0.16s}
+.thinking-dots span:nth-child(3){animation-delay:0s}
+@keyframes dot-bounce{0%,80%,100%{transform:scale(0.4);opacity:0.4}40%{transform:scale(1);opacity:1}}
+
+/* ─── COPY BUTTON ─── */
+.copy-btn{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all var(--trans);opacity:0;white-space:nowrap}
+.msg:hover .copy-btn,.copy-btn.copied{opacity:1}
+.copy-btn:hover{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.copy-btn.copied{color:#4caf50;border-color:#4caf50;background:rgba(76,175,80,0.1)}
+
+/* ─── TOAST ─── */
+#toast-wrap{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;align-items:center}
+.toast{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:13px;color:var(--text);box-shadow:0 6px 24px rgba(0,0,0,0.4);animation:toast-in 0.25s ease;pointer-events:none;white-space:nowrap}
+.toast.error{border-color:rgba(224,82,82,0.4);background:rgba(224,82,82,0.12);color:var(--danger)}
+.toast.success{border-color:rgba(76,175,80,0.4);color:#4caf50}
+@keyframes toast-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── SUGGESTION CHIPS ─── */
+.suggestions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px}
+.sug-chip{padding:8px 14px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:13px;cursor:pointer;transition:background var(--trans),border-color var(--trans);color:var(--text)}
+.sug-chip:hover{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
 .error-bubble{background:rgba(224,82,82,0.12);border:1px solid rgba(224,82,82,0.3);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--danger);display:flex;align-items:flex-start;gap:8px}
 .file-chips-inline{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .file-chip-inline{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.1);border-radius:8px;padding:4px 8px;font-size:12px}
@@ -496,9 +522,15 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   <div id="msgs-wrap">
     <div id="messages">
       <div id="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <h2>Ooumph AI Chat</h2>
-        <p>Chat with DeepSeek, Kimi and more. Upload files, activate skills, switch models mid-conversation.</p>
+        <p>Powered by DeepSeek & Kimi. Ask anything, upload files, or pick a skill to get started.</p>
+        <div class="suggestions">
+          <button class="sug-chip" onclick="useSuggestion('Explain quantum computing in simple terms')">⚛️ Explain quantum computing</button>
+          <button class="sug-chip" onclick="useSuggestion('Write a Python function to sort a list of dicts by key')">🐍 Python code example</button>
+          <button class="sug-chip" onclick="useSuggestion('Give me 5 creative startup ideas in AI')">💡 Startup ideas in AI</button>
+          <button class="sug-chip" onclick="useSuggestion('Summarise the key differences between REST and GraphQL')">🔗 REST vs GraphQL</button>
+        </div>
       </div>
     </div>
   </div>
@@ -584,6 +616,9 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   </div>
 </div>
 
+<!-- TOAST -->
+<div id="toast-wrap"></div>
+
 <!-- CONTEXT MENU -->
 <div class="ctx-menu" id="ctx-menu" style="display:none">
   <button onclick="ctxRename()">✏️ Rename</button>
@@ -603,7 +638,6 @@ const LS_LAST    = "ooumph_last_chat";
 const LS_GH_PAT  = "ooumph_gh_pat";
 const LS_GH_GIST = "ooumph_gh_gist";
 const MAX_CONTEXT_MSGS   = 20;
-const STREAM_RENDER_INTERVAL = 16;
 
 // ═══════════════════════════════════════════════════
 // STATE
@@ -683,7 +717,7 @@ async function saveGhSettings() {
   if(pat)localStorage.setItem(LS_GH_PAT,pat);else localStorage.removeItem(LS_GH_PAT);
   if(gid)localStorage.setItem(LS_GH_GIST,gid);else localStorage.removeItem(LS_GH_GIST);
   closeGhModal();
-  if(pat){var data=await loadFromGist();if(data){try{S.chats=JSON.parse(data);renderChatList();}catch(e){}}saveChats();alert("GitHub Gist Sync ready!");}
+  if(pat){var data=await loadFromGist();if(data){try{S.chats=JSON.parse(data);renderChatList();}catch(e){}}saveChats();showToast("✓ GitHub Gist Sync ready!","success");}
 }
 
 function loadChatsLS() {
@@ -1000,7 +1034,8 @@ function mkMsgEl(m) {
     }
   }
   const timeStr=m.timestamp?formatTime(m.timestamp):"";
-  el.innerHTML='<div class="msg-avatar">'+initials+'</div><div class="msg-body">'+contentHtml+'<div class="msg-meta">'+timeStr+"</div></div>";
+  const copyBtn=m.role==="assistant"&&!m.streaming?'<button class="copy-btn" onclick="copyMsg(\''+m.id+'\',this)" title="Copy">Copy</button>':"";
+  el.innerHTML='<div class="msg-avatar">'+initials+'</div><div class="msg-body">'+contentHtml+'<div class="msg-meta">'+timeStr+copyBtn+"</div></div>";
   return el;
 }
 function scrollBottom(smooth=true) {
@@ -1049,17 +1084,21 @@ async function send() {
       body:JSON.stringify({model:S.model,messages:apiMessages,max_tokens:2048,temperature:0.3,stream:true,top_p:0.9}),
     });
     clearTimeout(_tmr);if(!resp.ok){const errText=await resp.text();throw new Error(resp.status+": "+errText);}
+    // Show thinking dots before first token
+    cEl.className="msg-bubble streaming";
+    cEl.innerHTML='<span class="thinking-dots"><span></span><span></span><span></span></span>';
     const reader=resp.body.getReader(); const dec=new TextDecoder();
-    let buf="", renderTimer=null;
+    let buf="", rafPending=false, gotFirstToken=false;
     function scheduleRender(){
-      if(renderTimer) return;
-      renderTimer=setTimeout(()=>{
-        renderTimer=null;
+      if(rafPending) return;
+      rafPending=true;
+      requestAnimationFrame(()=>{
+        rafPending=false;
         cEl.className="msg-bubble streaming";
         cEl.textContent=aMsg.content;
         cEl.appendChild(Object.assign(document.createElement("span"),{className:"cursor-blink"}));
         scrollBottom(false);
-      },STREAM_RENDER_INTERVAL);
+      });
     }
     while(true){
       const{done,value}=await reader.read(); if(done) break;
@@ -1070,17 +1109,28 @@ async function send() {
         const d=line.slice(6).trim(); if(d==="[DONE]") continue;
         try{
           const token=JSON.parse(d).choices?.[0]?.delta?.content||"";
-          if(token){aMsg.content+=token;S.tokens.c+=tok(token);updateTokens();scheduleRender();}
+          if(token){
+            if(!gotFirstToken){ gotFirstToken=true; }
+            aMsg.content+=token;S.tokens.c+=tok(token);updateTokens();scheduleRender();
+          }
         }catch(e){}
       }
     }
-    if(renderTimer){clearTimeout(renderTimer);renderTimer=null;}
+    rafPending=false;
   } catch(e){
     aMsg.content="⚠️ "+e.message;
   } finally {
     aMsg.streaming=false;
     cEl.className="msg-bubble";
     cEl.innerHTML=renderMd(aMsg.content);
+    // Add copy button after streaming ends
+    const metaEl=cEl.closest(".msg-body")?.querySelector(".msg-meta");
+    if(metaEl&&!metaEl.querySelector(".copy-btn")){
+      const cb=document.createElement("button");
+      cb.className="copy-btn"; cb.textContent="Copy";
+      cb.onclick=function(){copyMsg(aMsg.id,cb);};
+      metaEl.appendChild(cb);
+    }
     checkAndAddExportButtons(aMsg,cEl);
     S.streaming=false; S.current.updatedAt=now(); updateSend(); saveChats(); updateTokens(); scrollBottom();
     try{localStorage.setItem(LS_LAST,S.current.id);}catch(e){}
@@ -1238,7 +1288,7 @@ function openSkillPanel(id){
 function closeSkillPanel(){$("skill-panel").classList.remove("open");}
 function saveSkillPanel(){
   const name=$("sp-name").value.trim(); const prompt=$("sp-prompt").value.trim();
-  if(!name||!prompt){alert("Name and prompt required.");return;}
+  if(!name||!prompt){showToast("Name and prompt are required","error");return;}
   const payload={name,icon:$("sp-icon").value.trim()||"💡",description:$("sp-desc").value.trim(),prompt};
   if(_editSkillId){const i=S.skills.findIndex(s=>s.id===_editSkillId);if(i>=0) S.skills[i]={...S.skills[i],...payload};}
   else S.skills.push({id:genId(),...payload});
@@ -1255,8 +1305,8 @@ function deleteSkillPanel(){
 // ═══════════════════════════════════════════════════
 function handleFiles(files){Array.from(files).forEach(addFile);$("file-input").value="";}
 function addFile(file){
-  if(S.pendingFiles.length>=5){alert("Max 5 files");return;}
-  if(file.size>15*1024*1024){alert(file.name+" > 15MB");return;}
+  if(S.pendingFiles.length>=5){showToast("Max 5 files allowed","error");return;}
+  if(file.size>15*1024*1024){showToast(file.name+" is over 15MB","error");return;}
   const entry={name:file.name,type:file.type,size:file.size,dataUrl:null,textContent:null,raw:file};
   const r=new FileReader();
   if(file.type.startsWith("image/")){r.onload=e=>{entry.dataUrl=e.target.result;renderChips();updateSend();};r.readAsDataURL(file);}
@@ -1322,8 +1372,41 @@ function ctxDelete(){
 // ═══════════════════════════════════════════════════
 // HELP
 // ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════
+function showToast(msg, type, ms) {
+  const wrap = $("toast-wrap"); if(!wrap) return;
+  const t = document.createElement("div");
+  t.className = "toast" + (type?" "+type:"");
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(()=>{ t.style.opacity="0"; t.style.transition="opacity 0.3s"; setTimeout(()=>t.remove(),320); }, ms||2200);
+}
+
+// ═══════════════════════════════════════════════════
+// COPY MESSAGE
+// ═══════════════════════════════════════════════════
+function copyMsg(msgId, btn) {
+  const m = S.current?.messages.find(x=>x.id===msgId);
+  const txt = m?(typeof m.content==="string"?m.content:""):"";
+  if(!txt) return;
+  navigator.clipboard.writeText(txt).then(()=>{
+    btn.textContent="Copied!"; btn.classList.add("copied");
+    setTimeout(()=>{ btn.textContent="Copy"; btn.classList.remove("copied"); }, 1800);
+  }).catch(()=>showToast("Copy failed","error"));
+}
+
+// ═══════════════════════════════════════════════════
+// SUGGESTION CHIPS
+// ═══════════════════════════════════════════════════
+function useSuggestion(text) {
+  const inp = $("input"); if(!inp) return;
+  inp.value = text; autoResize(inp); updateSend(); inp.focus();
+}
+
 function showHelp(){
-  alert("Ooumph AI Chat\n\nStreaming: Live word-by-word output\nEnter = Send, Shift+Enter = Newline\nMemory: Last "+MAX_CONTEXT_MSGS+" messages sent\nSkills: click ✶ for skill presets\nFiles: attach images/text/PDF via 📎\nGraphify: visual session timeline in sidebar\nRight-click a chat to rename, star, or delete\nChats auto-saved to browser storage");
+  showToast("Enter = Send · Shift+Enter = Newline · ✶ = Skills · 📎 = Files · Right-click chat = options", "", 4000);
 }
 // ═══════════════════════════════════════════════════
 // INIT
@@ -1392,7 +1475,7 @@ function getMsgContent(msgId){
   return m?(typeof m.content==="string"?m.content:""):"";
 }
 async function doExport(msgId,format){
-  const content=getMsgContent(msgId);if(!content){alert("No content to export.");return;}
+  const content=getMsgContent(msgId);if(!content){showToast("No content to export","error");return;}
   const title=(S.current&&S.current.title?S.current.title:"ooumph-chat").replace(/[^a-z0-9-_ ]/gi,"").trim()||"export";
   const fname=title.replace(/s+/g,"-").toLowerCase();
   try{
@@ -1405,7 +1488,7 @@ async function doExport(msgId,format){
     if(format==="png"||format==="jpeg") return await exportImage(msgId,fname,format);
     if(format==="docx") return await exportDocx(content,fname);
     exportTxt(content,fname);
-  }catch(e){alert("Export failed: "+e.message);}
+  }catch(e){showToast("Export failed: "+e.message,"error");}
 }
 function downloadBlob(blob,filename){
   const url=URL.createObjectURL(blob);const a=document.createElement("a");
@@ -1457,7 +1540,7 @@ async function exportPdf(content,fname){
 }
 async function exportImage(msgId,fname,format){
   if(!window.html2canvas)await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
-  const msgEl=document.querySelector('[data-id="'+msgId+'"] .msg-bubble');if(!msgEl){alert("Cannot find message.");return;}
+  const msgEl=document.querySelector('[data-id="'+msgId+'"] .msg-bubble');if(!msgEl){showToast("Cannot find message","error");return;}
   const canvas=await html2canvas(msgEl,{backgroundColor:"#2f2f2f",scale:2,useCORS:true,logging:false});
   const mime=format==="jpeg"?"image/jpeg":"image/png";const ext=format==="jpeg"?"jpg":"png";
   const quality=format==="jpeg"?0.92:undefined;
