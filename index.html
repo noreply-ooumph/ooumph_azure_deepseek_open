@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260530-9';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260531-1';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -1715,39 +1715,42 @@ function buildApiMessages(filesSnap) {
   if(S.current.instructions) sysparts.push(S.current.instructions);
   S.activeSkills.forEach(id=>{const sk=S.skills.find(s=>s.id===id);if(sk) sysparts.push(sk.prompt);});
   if(sysparts.length) msgs.push({role:"system",content:sysparts.join("\n\n---\n\n")});
+
+  // ROOT FIX: assistant placeholder is pushed BEFORE buildApiMessages is called,
+  // so S.current.messages[-1] is the empty assistant msg, not the user msg.
+  // slice(0,-1) cuts off that placeholder — last item is now the user message.
   const history=S.current.messages.slice(0,-1);
   const trimmed=history.length>MAX_CONTEXT_MSGS?history.slice(-MAX_CONTEXT_MSGS):history;
-  trimmed.forEach(m=>{
+
+  trimmed.forEach((m,i)=>{
     if(m.role==="system") return;
-    const content=m.content;
-    if(Array.isArray(content)) msgs.push({role:m.role,content});
-    else if(typeof content==="string"&&content) msgs.push({role:m.role,content});
-  });
-  const lastMsg=S.current.messages[S.current.messages.length-1];
-  if(lastMsg&&lastMsg.role==="user"){
-    if(filesSnap.length){
+
+    // The LAST item in trimmed is always the user message just sent — attach files here
+    const isCurrentUserMsg=(i===trimmed.length-1)&&m.role==="user";
+    if(isCurrentUserMsg&&filesSnap.length>0){
       const parts=[];
-      if(lastMsg.content) parts.push({type:"text",text:lastMsg.content});
+      if(m.content) parts.push({type:"text",text:m.content});
       filesSnap.forEach(f=>{
         if(f.type?.startsWith("image/")&&f.dataUrl){
-          // Vision: send as image
           parts.push({type:"image_url",image_url:{url:f.dataUrl}});
         } else if(f.textContent){
-          // PDF / text / doc: send full extracted content clearly wrapped
           parts.push({type:"text",text:
             "=== ATTACHED FILE: "+f.name+" ===\n"+
             f.textContent+
             "\n=== END OF FILE: "+f.name+" ==="
           });
-        } else {
-          parts.push({type:"text",text:"[File attached: "+f.name+" — still loading, please wait and resend]"});
         }
       });
       msgs.push({role:"user",content:parts});
-    } else {
-      msgs.push({role:"user",content:lastMsg.content});
+      return;
     }
-  }
+
+    // All other messages: pass through as-is
+    const content=m.content;
+    if(Array.isArray(content)) msgs.push({role:m.role,content});
+    else if(typeof content==="string"&&content) msgs.push({role:m.role,content});
+  });
+
   return msgs;
 }
 // ═══════════════════════════════════════════════════
