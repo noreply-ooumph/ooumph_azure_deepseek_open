@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260530-2';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260530-3';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -792,10 +792,9 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 // ════════════════════════════════════════════════════════════════
 // WEB ACCESS + TOOL USE  (like Claude Code / Perplexity)
 // ════════════════════════════════════════════════════════════════
-// For full web search: get a FREE Brave Search API key (2000/month, no CC):
-//   https://api.search.brave.com  → Sign up → API Keys → Create key
-// Leave empty to use DuckDuckGo fallback (instant answers only).
-const BRAVE_KEY = "";
+// Uses Jina AI — completely FREE, no signup, no API key needed.
+// Search:   https://s.jina.ai/  — real web search results
+// Read URL: https://r.jina.ai/  — reads any webpage cleanly
 
 const AI_TOOLS = [
   {
@@ -826,38 +825,25 @@ const AI_TOOLS = [
 
 async function searchWeb(query) {
   try {
-    if (BRAVE_KEY) {
-      const r = await fetch(
-        "https://api.search.brave.com/res/v1/web/search?q="+encodeURIComponent(query)+"&count=6&search_lang=en",
-        { headers:{"Accept":"application/json","X-Subscription-Token":BRAVE_KEY} }
-      );
-      if (!r.ok) throw new Error("Brave "+r.status);
-      const d = await r.json();
-      const hits = (d.web?.results||[]).slice(0,6);
-      return hits.length
-        ? hits.map((h,i)=>`[${i+1}] ${h.title}\nURL: ${h.url}\n${h.description||""}`).join("\n\n")
-        : "No results found.";
-    }
-    // Fallback: DuckDuckGo Instant Answers (no key needed)
-    const r = await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(query)+"&format=json&no_html=1&skip_disambig=1");
-    const d = await r.json();
-    const parts=[];
-    if(d.AbstractText) parts.push(d.AbstractText);
-    if(d.Answer) parts.push("Answer: "+d.Answer);
-    (d.RelatedTopics||[]).slice(0,5).forEach(t=>{if(t.Text) parts.push(t.Text);});
-    return parts.join("\n\n") || "No results. Add BRAVE_KEY to config for full web search.";
+    // Jina AI Search — free, no key, real web results optimised for AI
+    const r = await fetch("https://s.jina.ai/"+encodeURIComponent(query), {
+      headers:{ "Accept":"text/plain", "X-Retain-Images":"none" }
+    });
+    if (!r.ok) throw new Error("Search "+r.status);
+    const text = (await r.text()).trim().slice(0, 6000);
+    return text || "No results found for: "+query;
   } catch(e){ return "Search error: "+e.message; }
 }
 
 async function readUrl(url) {
   try {
-    const r = await fetch("https://api.allorigins.win/get?url="+encodeURIComponent(url)+"&charset=utf-8");
-    const d = await r.json();
-    const text=(d.contents||"")
-      .replace(/<script[\s\S]*?<\/script>/gi,"")
-      .replace(/<style[\s\S]*?<\/style>/gi,"")
-      .replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,5000);
-    return text||"No readable content at this URL.";
+    // Jina AI Reader — free, no key, strips ads/nav, returns clean markdown
+    const r = await fetch("https://r.jina.ai/"+url, {
+      headers:{ "Accept":"text/plain", "X-Retain-Images":"none" }
+    });
+    if (!r.ok) throw new Error("Read "+r.status);
+    const text = (await r.text()).trim().slice(0, 6000);
+    return text || "No readable content at this URL.";
   } catch(e){ return "Failed to read URL: "+e.message; }
 }
 
