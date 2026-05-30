@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260530-3';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260530-4';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -1506,7 +1506,30 @@ async function send() {
     let apiMessages=buildApiMessages(filesSnap);
     S.abortCtrl=new AbortController();
 
-    // ── Tool-use loop (max 5 rounds to prevent infinite loops) ──
+    // ── Character drip factory — creates fresh closure per round ──────────
+    // BUG FIXED: function declarations inside for-loops are hoisted and share
+    // one closure across all iterations. Arrow functions assigned to const
+    // are block-scoped and get fresh bindings every call. We wrap them in a
+    // factory so each streaming round has its own independent queue.
+    function makeDrip() {
+      let q=[], raf=null, displayed="";
+      const drain=()=>{
+        if(!q.length){raf=null;return;}
+        displayed+=q.splice(0,3).join("");
+        cEl.className="msg-bubble streaming";
+        cEl.textContent=displayed;
+        cEl.appendChild(Object.assign(document.createElement("span"),{className:"cursor-blink"}));
+        scrollBottom(false);
+        raf=requestAnimationFrame(drain);
+      };
+      return {
+        push:(token)=>{ q.push(...token.split("")); if(!raf) raf=requestAnimationFrame(drain); },
+        wait:()=>new Promise(res=>{ const chk=()=>q.length?requestAnimationFrame(chk):res(); chk(); }),
+        cancel:()=>{ if(raf){cancelAnimationFrame(raf);raf=null;} }
+      };
+    }
+
+    // ── Tool-use loop (max 5 rounds) ──────────────────────────────────────
     for(let round=0; round<5; round++){
       const payload={
         model:S.model, messages:apiMessages,
@@ -1523,28 +1546,15 @@ async function send() {
       clearTimeout(_tmr);
       if(!resp.ok){const errText=await resp.text();throw new Error(resp.status+": "+errText);}
 
-      // Show thinking dots
+      // Show thinking dots for this round
       cEl.className="msg-bubble streaming";
       cEl.innerHTML='<span class="thinking-dots"><span></span><span></span><span></span></span>';
 
-      // ── Stream + accumulate tool calls ──────────────────────
-      const reader=resp.body.getReader(); const dec=new TextDecoder();
-      let charQueue=[], drainRaf=null, displayedContent="";
+      // Fresh drip queue for this round (no shared closure bugs)
+      const drip=makeDrip();
+      const reader=resp.body.getReader();
+      const dec=new TextDecoder();
       let buf="", tcAccum={};
-
-      function drainChars(){
-        if(!charQueue.length){drainRaf=null;return;}
-        const chunk=charQueue.splice(0,3).join("");
-        displayedContent+=chunk;
-        cEl.className="msg-bubble streaming";
-        cEl.textContent=displayedContent;
-        cEl.appendChild(Object.assign(document.createElement("span"),{className:"cursor-blink"}));
-        scrollBottom(false);
-        drainRaf=requestAnimationFrame(drainChars);
-      }
-      function waitDrained(){
-        return new Promise(res=>{function check(){if(!charQueue.length)res();else requestAnimationFrame(check);}check();});
-      }
 
       while(true){
         const{done,value}=await reader.read(); if(done) break;
@@ -1557,15 +1567,14 @@ async function send() {
             const parsed=JSON.parse(raw);
             const delta=parsed.choices?.[0]?.delta;
             if(!delta) continue;
-            // Text content
+            // Text token → drip into bubble
             const token=delta.content||"";
             if(token){
               aMsg.content+=token;
               S.tokens.c+=tok(token); updateTokens();
-              charQueue.push(...token.split(""));
-              if(!drainRaf) drainRaf=requestAnimationFrame(drainChars);
+              drip.push(token);
             }
-            // Tool call fragments
+            // Tool call fragment → accumulate
             if(delta.tool_calls){
               for(const tc of delta.tool_calls){
                 if(!tcAccum[tc.index]) tcAccum[tc.index]={id:"",name:"",args:""};
@@ -1577,14 +1586,14 @@ async function send() {
           }catch(e){}
         }
       }
-      await waitDrained();
-      if(drainRaf){cancelAnimationFrame(drainRaf);drainRaf=null;}
+      await drip.wait();
+      drip.cancel();
 
-      // ── Check for tool calls ──────────────────────────────
+      // ── Tool calls? Execute them and loop ──────────────────
       const toolCalls=Object.values(tcAccum);
-      if(!toolCalls.length) break; // normal response, done
+      if(!toolCalls.length) break; // no tools — final text response, done
 
-      // Push assistant message with tool_calls to history
+      // Add assistant tool-call message to history
       apiMessages.push({
         role:"assistant",
         content:aMsg.content||null,
@@ -1595,36 +1604,28 @@ async function send() {
         }))
       });
 
-      // Show tool call panel
+      // Reset content for next round's response
+      aMsg.content="";
       toolWrap.style.display="flex";
-      aMsg.content=""; displayedContent="";
 
-      // Execute each tool and show progress
+      // Execute tools and show live status
       for(const tc of toolCalls){
         const icon=tc.name==="web_search"?"🔍":"📄";
         let labelArgs={}; try{labelArgs=JSON.parse(tc.args||"{}");}catch(e){}
         const labelText=tc.name==="web_search"
-          ? "Searching: "+esc(labelArgs.query||"")
-          : "Reading: "+esc(labelArgs.url||"");
-
+          ?"Searching: "+esc(labelArgs.query||"")
+          :"Reading: "+esc(labelArgs.url||"");
         const line=document.createElement("div");
         line.className="tool-call-line";
         line.innerHTML=`<span class="tc-icon">${icon}</span><span class="tc-text">${labelText}</span><span class="tc-status running">…</span>`;
         toolWrap.appendChild(line);
         scrollBottom(false);
-
         const result=await runTool(tc.name,tc.args);
-
         line.querySelector(".tc-status").textContent="✓";
         line.querySelector(".tc-status").className="tc-status done";
-
-        apiMessages.push({
-          role:"tool",
-          tool_call_id:tc.id||"",
-          content:result
-        });
+        apiMessages.push({role:"tool",tool_call_id:tc.id||"",content:result});
       }
-      // Loop again — model now has tool results and will write the response
+      // Continue loop → model now has tool results, will write final answer
     }
   } catch(e){
     aMsg.content="⚠️ "+e.message;
