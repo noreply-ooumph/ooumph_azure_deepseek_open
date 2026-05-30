@@ -1,14 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260529-2';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260529-3';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
 <title>Ooumph AI Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- Firebase (Auth + Firestore) — cross-device chat sync -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -381,6 +387,33 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   #input{font-size:15px}
 }
 
+/* ─── AUTH OVERLAY ─── */
+#auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s ease}
+#auth-box{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--border);border-radius:22px;padding:38px 34px;display:flex;flex-direction:column;gap:16px;box-shadow:0 24px 80px rgba(0,0,0,0.55)}
+.auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.auth-brand-dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(212,113,78,0.5)}
+.auth-brand-name{font-size:21px;font-weight:800;color:var(--text);letter-spacing:-0.02em}
+.auth-sub{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:4px}
+.auth-divider{height:1px;background:var(--border);margin:2px 0}
+.auth-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:-8px}
+.auth-inp{width:100%;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:14px;color:var(--text);transition:border-color 0.2s,box-shadow 0.2s;outline:none;font-family:inherit}
+.auth-inp:focus{border-color:rgba(212,113,78,0.5);box-shadow:0 0 0 3px rgba(212,113,78,0.08)}
+.auth-inp::placeholder{color:var(--muted)}
+#auth-err{font-size:13px;color:var(--danger);background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:9px;padding:10px 13px;display:none;line-height:1.4}
+#auth-submit{padding:13px;background:var(--accent);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:opacity 0.2s,transform 0.12s;letter-spacing:0.01em;font-family:inherit}
+#auth-submit:hover{opacity:0.88}
+#auth-submit:active{transform:scale(0.98)}
+#auth-submit:disabled{opacity:0.45;cursor:not-allowed}
+.auth-footer{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px}
+.auth-toggle-btn{font-size:13px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px;padding:0}
+.auth-note{font-size:11px;color:var(--muted);text-align:center;line-height:1.55}
+.auth-mode-label{font-size:13px;color:var(--muted)}
+/* user pill in topbar */
+#user-pill{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;transition:background var(--trans);flex-shrink:0;max-width:160px;overflow:hidden}
+#user-pill:hover{background:var(--surface2)}
+#user-pill .u-dot{width:7px;height:7px;border-radius:50%;background:#4caf50;flex-shrink:0}
+#user-pill .u-email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:11px}
+/* ─── END AUTH ─── */
 /* iOS safari: prevent bounce & fill height */
 @supports(-webkit-touch-callout:none){
   #msgs-wrap{-webkit-overflow-scrolling:touch}
@@ -457,6 +490,33 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 }
 </style>
 </head><body>
+<!-- ═══ AUTH SCREEN ═══ -->
+<div id="auth-overlay" style="display:none">
+  <div id="auth-box">
+    <div class="auth-brand">
+      <div class="auth-brand-dot"></div>
+      <span class="auth-brand-name">Ooumph AI</span>
+    </div>
+    <p class="auth-sub">Sign in to sync your chats across every device — just like Claude.</p>
+    <div class="auth-divider"></div>
+    <div id="auth-err"></div>
+    <div>
+      <div class="auth-label">Email</div>
+      <input type="email" id="a-email" class="auth-inp" placeholder="you@example.com" autocomplete="email" oninput="clearAuthErr()">
+    </div>
+    <div>
+      <div class="auth-label">Password</div>
+      <input type="password" id="a-pass" class="auth-inp" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAuth()" oninput="clearAuthErr()">
+    </div>
+    <button id="auth-submit" onclick="doAuth()">Sign In</button>
+    <div class="auth-footer">
+      <span class="auth-mode-label" id="auth-mode-label">New here?</span>
+      <button class="auth-toggle-btn" id="auth-toggle-btn" onclick="toggleAuthMode()">Create account</button>
+    </div>
+    <p class="auth-note">💬 Chats are saved privately to your account and sync instantly to any device.</p>
+  </div>
+</div>
+
 <div id="app">
 <!-- SIDEBAR -->
 <div id="sidebar">
@@ -511,6 +571,10 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
       <div class="model-dropdown" id="model-drop"></div>
     </div>
     <span class="tokens-badge" id="tokens-badge">0 tokens</span>
+    <div id="user-pill" onclick="doLogout()" title="Signed in — click to sign out" style="display:none">
+      <span class="u-dot"></span>
+      <span class="u-email" id="u-email-text">—</span>
+    </div>
     <button class="topbar-icon" onclick="openGhModal()" title="GitHub Gist Sync" style="font-size:11px;font-weight:bold">GH</button>
     <button class="topbar-icon" onclick="openInstModal()" title="System instructions">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -626,6 +690,159 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   <button onclick="ctxStar()">☆ Star / Unstar</button>
   <button class="danger" onclick="ctxDelete()">🗑 Delete</button>
 </div><script>
+// ════════════════════════════════════════════════════════════════
+// FIREBASE — EMAIL LOGIN + CROSS-DEVICE CHAT SYNC
+// ════════════════════════════════════════════════════════════════
+//
+// ONE-TIME SETUP (free, ~5 minutes):
+//
+//  1. Visit https://console.firebase.google.com  → "Add project"
+//  2. Inside your project → "Add app" → Web (</>) → copy the config
+//  3. Authentication → Sign-in method → Enable "Email/Password"
+//  4. Firestore Database → Create database → Start in production mode
+//     Then Rules tab → paste:
+//       rules_version='2';
+//       service cloud.firestore {
+//         match /databases/{database}/documents {
+//           match /users/{uid} {
+//             allow read, write: if request.auth != null && request.auth.uid == uid;
+//           }
+//         }
+//       }
+//  5. Replace the 6 placeholder values below with your project's values
+//  6. Save → git add . → git commit → git push
+//
+//  After that, anyone you add via Firebase Console → Authentication
+//  → Users → Add user can log in and their chats sync across devices.
+// ════════════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "REPLACE_FIREBASE_API_KEY",
+  authDomain:        "REPLACE_PROJECT_ID.firebaseapp.com",
+  projectId:         "REPLACE_PROJECT_ID",
+  storageBucket:     "REPLACE_PROJECT_ID.appspot.com",
+  messagingSenderId: "REPLACE_SENDER_ID",
+  appId:             "REPLACE_APP_ID"
+};
+
+// Set to false to disable auth entirely and run without login
+const AUTH_ENABLED = !FIREBASE_CONFIG.apiKey.startsWith("REPLACE");
+
+let _fbAuth = null, _fbDb = null, _fbUser = null, _fsSaveTimer = null;
+
+function fbInit() {
+  if (!AUTH_ENABLED) return;
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    _fbAuth = firebase.auth();
+    _fbDb   = firebase.firestore();
+  } catch(e) { console.warn("Firebase init failed:", e.message); }
+}
+
+async function fbLoadUserData(uid) {
+  try {
+    const snap = await _fbDb.collection("users").doc(uid).get();
+    if (snap.exists) return snap.data();
+  } catch(e) { console.warn("Firestore load:", e.message); }
+  return null;
+}
+
+async function fbSaveNow() {
+  if (!_fbUser || !_fbDb) return;
+  try {
+    await _fbDb.collection("users").doc(_fbUser.uid).set({
+      chats:     S.chats,
+      skills:    S.skills,
+      updatedAt: Date.now()
+    }, { merge: true });
+  } catch(e) { console.warn("Firestore save:", e.message); }
+}
+
+// Debounced — waits 1.8 s after last change before writing to Firestore
+function scheduleFsSave() {
+  if (!_fbUser) return;
+  clearTimeout(_fsSaveTimer);
+  _fsSaveTimer = setTimeout(fbSaveNow, 1800);
+}
+
+// ── Auth UI ───────────────────────────────────────────────────
+let _authMode = "signin";
+
+function toggleAuthMode() {
+  _authMode = _authMode === "signin" ? "signup" : "signin";
+  const isSignIn = _authMode === "signin";
+  $("auth-submit").textContent       = isSignIn ? "Sign In" : "Create Account";
+  $("auth-toggle-btn").textContent   = isSignIn ? "Create account" : "Back to Sign In";
+  $("auth-mode-label").textContent   = isSignIn ? "New here?" : "Already have an account?";
+  clearAuthErr();
+}
+
+function clearAuthErr() { $("auth-err").style.display="none"; }
+
+function showAuthErr(msg) {
+  const el = $("auth-err");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function friendlyAuthError(code) {
+  const m = {
+    "auth/user-not-found":        "No account found with that email.",
+    "auth/wrong-password":        "Incorrect password. Please try again.",
+    "auth/invalid-credential":    "Incorrect email or password.",
+    "auth/invalid-email":         "Please enter a valid email address.",
+    "auth/email-already-in-use":  "An account with this email already exists.",
+    "auth/weak-password":         "Password must be at least 6 characters.",
+    "auth/too-many-requests":     "Too many attempts — please wait a moment.",
+    "auth/network-request-failed":"Network error. Check your connection.",
+  };
+  return m[code] || "Something went wrong. Please try again.";
+}
+
+async function doAuth() {
+  const email = ($("a-email").value  || "").trim();
+  const pass  = ($("a-pass").value   || "").trim();
+  if (!email || !pass) { showAuthErr("Please enter your email and password."); return; }
+  const btn = $("auth-submit");
+  btn.disabled = true;
+  btn.textContent = "Please wait…";
+  clearAuthErr();
+  try {
+    if (_authMode === "signin") {
+      await _fbAuth.signInWithEmailAndPassword(email, pass);
+    } else {
+      await _fbAuth.createUserWithEmailAndPassword(email, pass);
+    }
+    // onAuthStateChanged handles the rest
+  } catch(e) {
+    showAuthErr(friendlyAuthError(e.code));
+    btn.disabled = false;
+    btn.textContent = _authMode === "signin" ? "Sign In" : "Create Account";
+  }
+}
+
+async function doLogout() {
+  if (!_fbAuth || !_fbUser) return;
+  clearTimeout(_fsSaveTimer);
+  await fbSaveNow(); // flush before sign out
+  await _fbAuth.signOut();
+  // Reset state
+  S.chats = []; S.current = null; S.tokens = {p:0,c:0};
+  _fbUser = null;
+  renderMsgs(); renderChatList(); updateTokens();
+  $("topbar-title").textContent = "Ooumph AI Chat";
+  $("user-pill").style.display = "none";
+  $("a-pass").value = "";
+  $("auth-overlay").style.display = "flex";
+}
+
+// ── Wait for auth state on startup ────────────────────────────
+function waitForAuth() {
+  return new Promise(resolve => {
+    if (!_fbAuth) { resolve(null); return; }
+    const unsub = _fbAuth.onAuthStateChanged(user => { unsub(); resolve(user); });
+  });
+}
+
 // ═══════════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════════
@@ -680,7 +897,13 @@ function formatTime(ts) {
 // PERSISTENCE — save immediately + on page unload
 // ═══════════════════════════════════════════════════
 function saveChats() {
-  try { var _sd=JSON.stringify(S.chats); localStorage.setItem(LS_CHATS,_sd); localStorage.setItem(LS_LAST,S.current?S.current.id:""); saveToGist(_sd); } catch(e){}
+  try {
+    const _sd = JSON.stringify(S.chats);
+    localStorage.setItem(LS_CHATS, _sd);
+    localStorage.setItem(LS_LAST, S.current ? S.current.id : "");
+    saveToGist(_sd);
+    scheduleFsSave(); // cross-device sync via Firestore
+  } catch(e) {}
 }
 // === GITHUB GIST SYNC ===
 async function saveToGist(d) {
@@ -1433,17 +1656,85 @@ function showHelp(){
 // INIT
 // ═══════════════════════════════════════════════════
 async function init() {
-  loadChatsLS(); loadSkillsLS();
-  var _gd=await loadFromGist();
-  if(_gd){try{S.chats=JSON.parse(_gd);}catch(e){}renderChatList();}
-  $("model-drop").innerHTML=MODELS.map(m=>`<div class="model-opt ${m===S.model?"active":""}" onclick="setModelPill('${m}');toggleModelDrop()">${esc(m)}</div>`).join("");
-  let resumed=false;
-  try{const lastId=localStorage.getItem(LS_LAST);if(lastId){const c=S.chats.find(x=>x.id===lastId);if(c){openChat(c.id);resumed=true;}}}catch(e){}
-  if(!resumed&&S.chats.length) openChat(S.chats[0].id);
-  renderChatList(); updateTokens(); $("input").focus();
-  // Mobile: start with sidebar hidden
-  if(window.innerWidth<=768){$("sidebar").classList.add("collapsed");$("sidebar").classList.remove("open");}
+  // ── 1. Boot Firebase (if configured) ────────────────────────
+  fbInit();
+
+  // ── 2. Auth gate ─────────────────────────────────────────────
+  if (AUTH_ENABLED && _fbAuth) {
+    $("auth-overlay").style.display = "flex"; // show login while checking
+    const user = await waitForAuth();
+
+    if (!user) {
+      // Not logged in → stay on login screen
+      $("a-email").focus();
+      // Listen for future sign-in
+      _fbAuth.onAuthStateChanged(async (u) => {
+        if (!u) return;
+        await onSignedIn(u);
+      });
+      return; // don't load the app yet
+    }
+    await onSignedIn(user);
+  } else {
+    // Firebase not configured → load from localStorage (no auth)
+    loadChatsLS(); loadSkillsLS();
+    await loadFromGist().then(_gd=>{if(_gd){try{S.chats=JSON.parse(_gd);}catch(e){}}}).catch(()=>{});
+    bootApp();
+  }
 }
+
+// Called once the user is confirmed signed-in
+async function onSignedIn(user) {
+  _fbUser = user;
+
+  // Show user pill in topbar
+  $("user-pill").style.display = "flex";
+  $("u-email-text").textContent = user.email;
+
+  // Load chats from Firestore (authoritative cross-device source)
+  const data = await fbLoadUserData(user.uid);
+  if (data && Array.isArray(data.chats) && data.chats.length) {
+    S.chats = data.chats;
+    try { localStorage.setItem(LS_CHATS, JSON.stringify(S.chats)); } catch(e) {}
+  } else {
+    // First login or empty Firestore — seed from localStorage
+    loadChatsLS();
+    if (S.chats.length) await fbSaveNow(); // push local chats to cloud
+  }
+
+  // Load skills (prefer Firestore, fall back to localStorage)
+  if (data && Array.isArray(data.skills) && data.skills.length) {
+    S.skills = data.skills;
+  } else {
+    loadSkillsLS();
+  }
+
+  // Hide auth overlay and boot the app
+  $("auth-overlay").style.display = "none";
+  bootApp();
+}
+
+// Shared app boot sequence (with or without auth)
+function bootApp() {
+  $("model-drop").innerHTML = MODELS.map(m =>
+    `<div class="model-opt ${m===S.model?"active":""}" onclick="setModelPill('${m}');toggleModelDrop()">${esc(m)}</div>`
+  ).join("");
+
+  let resumed = false;
+  try {
+    const lastId = localStorage.getItem(LS_LAST);
+    if (lastId) { const c = S.chats.find(x=>x.id===lastId); if(c){openChat(c.id);resumed=true;} }
+  } catch(e) {}
+  if (!resumed && S.chats.length) openChat(S.chats[0].id);
+
+  renderChatList(); updateTokens();
+  try { $("input").focus(); } catch(e) {}
+  if (window.innerWidth <= 768) {
+    $("sidebar").classList.add("collapsed");
+    $("sidebar").classList.remove("open");
+  }
+}
+
 init();
 
 window.addEventListener("resize",()=>{
