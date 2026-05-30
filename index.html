@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260529-5';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260529-6';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -581,11 +581,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
       <input type="password" id="a-pass" class="auth-inp" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAuth()" oninput="clearAuthErr()">
     </div>
     <button id="auth-submit" onclick="doAuth()">Sign In</button>
-    <div class="auth-footer">
-      <span class="auth-mode-label" id="auth-mode-label">New here?</span>
-      <button class="auth-toggle-btn" id="auth-toggle-btn" onclick="toggleAuthMode()">Create account</button>
-    </div>
-    <p class="auth-note">💬 Chats are saved privately to your account and sync instantly to any device.</p>
+    <p class="auth-note">💬 Access is by invitation only. Contact your admin to get an account.</p>
   </div>
 </div>
 
@@ -841,16 +837,6 @@ function scheduleFsSave() {
 }
 
 // ── Auth UI ───────────────────────────────────────────────────
-let _authMode = "signin";
-
-function toggleAuthMode() {
-  _authMode = _authMode === "signin" ? "signup" : "signin";
-  const isSignIn = _authMode === "signin";
-  $("auth-submit").textContent       = isSignIn ? "Sign In" : "Create Account";
-  $("auth-toggle-btn").textContent   = isSignIn ? "Create account" : "Back to Sign In";
-  $("auth-mode-label").textContent   = isSignIn ? "New here?" : "Already have an account?";
-  clearAuthErr();
-}
 
 function clearAuthErr() { $("auth-err").style.display="none"; }
 
@@ -875,24 +861,20 @@ function friendlyAuthError(code) {
 }
 
 async function doAuth() {
-  const email = ($("a-email").value  || "").trim();
-  const pass  = ($("a-pass").value   || "").trim();
+  const email = ($("a-email").value || "").trim();
+  const pass  = ($("a-pass").value  || "").trim();
   if (!email || !pass) { showAuthErr("Please enter your email and password."); return; }
   const btn = $("auth-submit");
   btn.disabled = true;
-  btn.textContent = "Please wait…";
+  btn.textContent = "Signing in…";
   clearAuthErr();
   try {
-    if (_authMode === "signin") {
-      await _fbAuth.signInWithEmailAndPassword(email, pass);
-    } else {
-      await _fbAuth.createUserWithEmailAndPassword(email, pass);
-    }
+    await _fbAuth.signInWithEmailAndPassword(email, pass);
     // onAuthStateChanged handles the rest
   } catch(e) {
     showAuthErr(friendlyAuthError(e.code));
     btn.disabled = false;
-    btn.textContent = _authMode === "signin" ? "Sign In" : "Create Account";
+    btn.textContent = "Sign In";
   }
 }
 
