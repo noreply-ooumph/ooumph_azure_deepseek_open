@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260531-1';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260531-2';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -2335,7 +2335,7 @@ async function exportPdf(content,fname){
     const h1=line.match(/^# (.+)/);const h2=line.match(/^## (.+)/);
     if(h1){doc.setFontSize(15);doc.setFont("helvetica","bold");const w=doc.splitTextToSize(h1[1],usableW);if(y+w.length*7>pageH-margin){doc.addPage();y=margin;}doc.text(w,margin,y);y+=w.length*7+3;doc.setFontSize(11);doc.setFont("helvetica","normal");}
     else if(h2){doc.setFontSize(13);doc.setFont("helvetica","bold");const w=doc.splitTextToSize(h2[1],usableW);if(y+w.length*6>pageH-margin){doc.addPage();y=margin;}doc.text(w,margin,y);y+=w.length*6+3;doc.setFontSize(11);doc.setFont("helvetica","normal");}
-    else{const clean=line.replace(/**(.+?)**/g,"$1").replace(/*(.+?)*/g,"$1").replace(/`(.+?)`/g,"$1").replace(/^[-*] /,"• ");const w=doc.splitTextToSize(clean,usableW);if(y+w.length*5>pageH-margin){doc.addPage();y=margin;}doc.text(w,margin,y);y+=w.length*5+1;}
+    else{const clean=line.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/`(.+?)`/g,"$1").replace(/^[-*] /,"• ");const w=doc.splitTextToSize(clean,usableW);if(y+w.length*5>pageH-margin){doc.addPage();y=margin;}doc.text(w,margin,y);y+=w.length*5+1;}
   }
   const pc=doc.internal.getNumberOfPages();for(let p=1;p<=pc;p++){doc.setPage(p);doc.setFontSize(8);doc.setTextColor(160,160,160);doc.text(p+" / "+pc,pageW/2,pageH-8,{align:"center"});}
   doc.save(fname+".pdf");
@@ -2364,7 +2364,7 @@ async function exportDocx(content,fname){
     else if(h2) children.push(new Paragraph({text:h2[1],heading:HeadingLevel.HEADING_2}));
     else if(h3) children.push(new Paragraph({text:h3[1],heading:HeadingLevel.HEADING_3}));
     else if(bullet) children.push(new Paragraph({text:bullet[1],bullet:{level:0}}));
-    else{const clean=line.replace(/**(.+?)**/g,"$1").replace(/*(.+?)*/g,"$1").replace(/`(.+?)`/g,"$1");children.push(new Paragraph({children:[new TextRun({text:clean})]}));}
+    else{const clean=line.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/`(.+?)`/g,"$1");children.push(new Paragraph({children:[new TextRun({text:clean})]}));}
   }
   const doc=new Document({sections:[{children}]});
   const buf=await Packer.toBuffer(doc);
