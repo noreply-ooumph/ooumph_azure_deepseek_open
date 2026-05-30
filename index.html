@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260529-4';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260529-5';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -388,31 +388,103 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 }
 
 /* ─── AUTH OVERLAY ─── */
-#auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s ease}
-#auth-box{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--border);border-radius:22px;padding:38px 34px;display:flex;flex-direction:column;gap:16px;box-shadow:0 24px 80px rgba(0,0,0,0.55)}
-.auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:2px}
-.auth-brand-dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(212,113,78,0.5)}
-.auth-brand-name{font-size:21px;font-weight:800;color:var(--text);letter-spacing:-0.02em}
-.auth-sub{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:4px}
-.auth-divider{height:1px;background:var(--border);margin:2px 0}
-.auth-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:-8px}
-.auth-inp{width:100%;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:14px;color:var(--text);transition:border-color 0.2s,box-shadow 0.2s;outline:none;font-family:inherit}
-.auth-inp:focus{border-color:rgba(212,113,78,0.5);box-shadow:0 0 0 3px rgba(212,113,78,0.08)}
+#auth-overlay{
+  position:fixed;inset:0;background:var(--bg);z-index:10000;
+  display:none; /* hidden by default — shown only if not logged in */
+  align-items:center;justify-content:center;padding:16px;
+}
+#auth-overlay.visible{display:flex;animation:fadeIn 0.28s cubic-bezier(0.22,1,0.36,1)}
+
+/* Card */
+#auth-box{
+  width:100%;max-width:420px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:24px;padding:40px 36px 32px;
+  display:flex;flex-direction:column;gap:18px;
+  box-shadow:0 32px 96px rgba(0,0,0,0.6);
+}
+
+/* Brand */
+.auth-brand{display:flex;align-items:center;gap:10px}
+.auth-brand-dot{
+  width:12px;height:12px;border-radius:50%;
+  background:var(--accent);flex-shrink:0;
+  box-shadow:0 0 12px rgba(212,113,78,0.55);
+}
+.auth-brand-name{font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.025em}
+.auth-sub{font-size:13px;color:var(--muted);line-height:1.6;margin-top:-4px}
+.auth-divider{height:1px;background:var(--border)}
+
+/* Fields */
+.auth-field{display:flex;flex-direction:column;gap:6px}
+.auth-label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.03em}
+.auth-inp{
+  width:100%;padding:13px 15px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:11px;font-size:14px;color:var(--text);
+  transition:border-color 0.2s,box-shadow 0.2s;
+  outline:none;font-family:inherit;
+}
+.auth-inp:focus{border-color:rgba(212,113,78,0.5);box-shadow:0 0 0 3px rgba(212,113,78,0.09)}
 .auth-inp::placeholder{color:var(--muted)}
-#auth-err{font-size:13px;color:var(--danger);background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.2);border-radius:9px;padding:10px 13px;display:none;line-height:1.4}
-#auth-submit{padding:13px;background:var(--accent);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:opacity 0.2s,transform 0.12s;letter-spacing:0.01em;font-family:inherit}
-#auth-submit:hover{opacity:0.88}
+
+/* Error */
+#auth-err{
+  font-size:13px;color:var(--danger);
+  background:rgba(224,82,82,0.08);border:1px solid rgba(224,82,82,0.22);
+  border-radius:10px;padding:11px 14px;display:none;line-height:1.45;
+}
+
+/* Submit */
+#auth-submit{
+  padding:14px;background:var(--accent);color:#fff;
+  border-radius:11px;font-size:15px;font-weight:700;
+  border:none;cursor:pointer;
+  transition:opacity 0.2s,transform 0.12s,box-shadow 0.2s;
+  font-family:inherit;letter-spacing:0.01em;
+  box-shadow:0 4px 18px rgba(212,113,78,0.35);
+  margin-top:2px;
+}
+#auth-submit:hover{opacity:0.88;box-shadow:0 6px 24px rgba(212,113,78,0.45)}
 #auth-submit:active{transform:scale(0.98)}
-#auth-submit:disabled{opacity:0.45;cursor:not-allowed}
-.auth-footer{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px}
-.auth-toggle-btn{font-size:13px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px;padding:0}
-.auth-note{font-size:11px;color:var(--muted);text-align:center;line-height:1.55}
+#auth-submit:disabled{opacity:0.45;cursor:not-allowed;box-shadow:none}
+
+/* Footer */
+.auth-footer{display:flex;align-items:center;justify-content:center;gap:6px}
 .auth-mode-label{font-size:13px;color:var(--muted)}
-/* user pill in topbar */
-#user-pill{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;transition:background var(--trans);flex-shrink:0;max-width:160px;overflow:hidden}
-#user-pill:hover{background:var(--surface2)}
-#user-pill .u-dot{width:7px;height:7px;border-radius:50%;background:#4caf50;flex-shrink:0}
-#user-pill .u-email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:11px}
+.auth-toggle-btn{
+  font-size:13px;color:var(--accent);background:none;border:none;
+  cursor:pointer;font-family:inherit;
+  text-decoration:underline;text-underline-offset:3px;padding:0;
+}
+.auth-note{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.6}
+
+/* Responsive: small phones */
+@media(max-width:480px){
+  #auth-box{padding:28px 20px 24px;border-radius:18px;gap:14px}
+  .auth-brand-name{font-size:19px}
+  #auth-submit{font-size:14px;padding:13px}
+}
+
+/* ─── SIGN-OUT BUTTON (topbar) ─── */
+#signout-btn{
+  display:none;align-items:center;gap:6px;
+  padding:6px 12px;background:var(--surface);
+  border:1px solid var(--border);border-radius:20px;
+  font-size:12px;font-weight:600;cursor:pointer;
+  transition:background var(--trans),border-color var(--trans),color var(--trans);
+  flex-shrink:0;white-space:nowrap;color:var(--muted);
+}
+#signout-btn:hover{background:rgba(224,82,82,0.1);border-color:rgba(224,82,82,0.35);color:var(--danger)}
+#signout-btn .u-dot{width:7px;height:7px;border-radius:50%;background:#4caf50;flex-shrink:0}
+#signout-btn .u-email{
+  max-width:120px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;color:var(--muted);font-size:11px;font-weight:400;
+}
+@media(max-width:600px){
+  #signout-btn .u-email{display:none}
+  #signout-btn{padding:6px 10px}
+}
 /* ─── END AUTH ─── */
 /* iOS safari: prevent bounce & fill height */
 @supports(-webkit-touch-callout:none){
@@ -491,7 +563,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 </style>
 </head><body>
 <!-- ═══ AUTH SCREEN ═══ -->
-<div id="auth-overlay" style="display:none">
+<div id="auth-overlay">
   <div id="auth-box">
     <div class="auth-brand">
       <div class="auth-brand-dot"></div>
@@ -500,12 +572,12 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
     <p class="auth-sub">Sign in to sync your chats across every device — just like Claude.</p>
     <div class="auth-divider"></div>
     <div id="auth-err"></div>
-    <div>
-      <div class="auth-label">Email</div>
+    <div class="auth-field">
+      <label class="auth-label" for="a-email">Email</label>
       <input type="email" id="a-email" class="auth-inp" placeholder="you@example.com" autocomplete="email" oninput="clearAuthErr()">
     </div>
-    <div>
-      <div class="auth-label">Password</div>
+    <div class="auth-field">
+      <label class="auth-label" for="a-pass">Password</label>
       <input type="password" id="a-pass" class="auth-inp" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAuth()" oninput="clearAuthErr()">
     </div>
     <button id="auth-submit" onclick="doAuth()">Sign In</button>
@@ -571,10 +643,11 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
       <div class="model-dropdown" id="model-drop"></div>
     </div>
     <span class="tokens-badge" id="tokens-badge">0 tokens</span>
-    <div id="user-pill" onclick="doLogout()" title="Signed in — click to sign out" style="display:none">
+    <button id="signout-btn" onclick="doLogout()" title="Click to sign out">
       <span class="u-dot"></span>
       <span class="u-email" id="u-email-text">—</span>
-    </div>
+      <span>Sign out</span>
+    </button>
     <button class="topbar-icon" onclick="openGhModal()" title="GitHub Gist Sync" style="font-size:11px;font-weight:bold">GH</button>
     <button class="topbar-icon" onclick="openInstModal()" title="System instructions">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -736,6 +809,8 @@ function fbInit() {
     firebase.initializeApp(FIREBASE_CONFIG);
     _fbAuth = firebase.auth();
     _fbDb   = firebase.firestore();
+    // Persist session across browser restarts — user stays logged in permanently
+    _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
   } catch(e) { console.warn("Firebase init failed:", e.message); }
 }
 
@@ -823,6 +898,7 @@ async function doAuth() {
 
 async function doLogout() {
   if (!_fbAuth || !_fbUser) return;
+  if (!confirm("Sign out of Ooumph AI?")) return;
   clearTimeout(_fsSaveTimer);
   await fbSaveNow(); // flush before sign out
   await _fbAuth.signOut();
@@ -831,9 +907,10 @@ async function doLogout() {
   _fbUser = null;
   renderMsgs(); renderChatList(); updateTokens();
   $("topbar-title").textContent = "Ooumph AI Chat";
-  $("user-pill").style.display = "none";
+  $("signout-btn").style.display = "none";
   $("a-pass").value = "";
-  $("auth-overlay").style.display = "flex";
+  $("auth-overlay").classList.add("visible");
+  setTimeout(() => $("a-email").focus(), 100);
 }
 
 // ── Wait for auth state on startup ────────────────────────────
@@ -1662,18 +1739,19 @@ async function init() {
 
   // ── 2. Auth gate ─────────────────────────────────────────────
   if (AUTH_ENABLED && _fbAuth) {
-    $("auth-overlay").style.display = "flex"; // show login while checking
+    // Silently check if session is already cached (no overlay flash)
     const user = await waitForAuth();
 
     if (!user) {
-      // Not logged in → stay on login screen
-      $("a-email").focus();
-      // Listen for future sign-in
+      // Definitely not logged in — show login screen
+      $("auth-overlay").classList.add("visible");
+      setTimeout(() => $("a-email").focus(), 150);
+      // Listen for sign-in
       _fbAuth.onAuthStateChanged(async (u) => {
         if (!u) return;
         await onSignedIn(u);
       });
-      return; // don't load the app yet
+      return;
     }
     await onSignedIn(user);
   } else {
@@ -1688,8 +1766,8 @@ async function init() {
 async function onSignedIn(user) {
   _fbUser = user;
 
-  // Show user pill in topbar
-  $("user-pill").style.display = "flex";
+  // Show sign-out button in topbar
+  $("signout-btn").style.display = "flex";
   $("u-email-text").textContent = user.email;
 
   // Load chats from Firestore (authoritative cross-device source)
@@ -1711,7 +1789,7 @@ async function onSignedIn(user) {
   }
 
   // Hide auth overlay and boot the app
-  $("auth-overlay").style.display = "none";
+  $("auth-overlay").classList.remove("visible");
   bootApp();
 }
 
