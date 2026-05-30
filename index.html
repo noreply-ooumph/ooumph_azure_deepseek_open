@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260530-6';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260530-7';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -2179,11 +2179,12 @@ function checkAndAddExportButtons(aMsg,cEl){
   const shown=[...new Set(primary)];
   const extra=Object.keys(icons).filter(f=>!shown.includes(f));
   const toolbar=document.createElement("div"); toolbar.className="export-toolbar";
+  const mid=aMsg.id;
   toolbar.innerHTML='<span class="export-label">💾 Save as:</span>'+
-    shown.map(f=>'<button class="export-btn" onclick="doExport('+aMsg.id+','+f+')">'+emojs[f]+" "+icons[f]+"</button>").join("")+
-    '<button class="export-btn export-more-btn" onclick="toggleMoreExports(this,'+aMsg.id+')">&#9662; More</button>'+
+    shown.map(f=>'<button class="export-btn" onclick="doExport(\''+mid+'\',\''+f+'\')">'+emojs[f]+" "+icons[f]+"</button>").join("")+
+    '<button class="export-btn export-more-btn" onclick="toggleMoreExports(this,\''+mid+'\')">&#9662; More</button>'+
     '<div class="export-more-list" style="display:none">'+
-    extra.map(f=>'<button class="export-btn" onclick="doExport('+aMsg.id+','+f+')">'+emojs[f]+" "+icons[f]+"</button>").join("")+"</div>";
+    extra.map(f=>'<button class="export-btn" onclick="doExport(\''+mid+'\',\''+f+'\')">'+emojs[f]+" "+icons[f]+"</button>").join("")+"</div>";
   cEl.parentNode.insertBefore(toolbar,cEl.nextSibling);
 }
 function toggleMoreExports(btn,id){
