@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260531-2';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260531-3';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -1945,9 +1945,23 @@ function addFile(file){
   S.pendingFiles.push(entry); renderChips(); updateSend();
 
   if(file.type.startsWith("image/")){
-    // Images → base64 for vision models
+    // Images → base64. Block send until loaded (FileReader is async)
+    entry.loading=true;
+    renderChips(); updateSend();
+    // Warn if a non-vision model is active
+    if(!S.model.startsWith("Kimi")){
+      showToast("Switch to Kimi-K2.6 for image analysis — DeepSeek is text-only","",5000);
+      // Auto-switch to Kimi so the image actually works
+      setModelPill("Kimi-K2.6");
+    }
     const r=new FileReader();
-    r.onload=e=>{entry.dataUrl=e.target.result; renderChips(); updateSend();};
+    r.onload=e=>{
+      entry.dataUrl=e.target.result;
+      entry.loading=false;
+      renderChips(); updateSend();
+      showToast("Image ready — ask your question and send","success",3000);
+    };
+    r.onerror=()=>{ entry.loading=false; renderChips(); updateSend(); };
     r.readAsDataURL(file);
 
   } else if(file.type==="application/pdf"){
