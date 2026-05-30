@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260530-8';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260530-9';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -1774,9 +1774,15 @@ function updateSend() {
     return;
   }
   btn.onclick=send;
-  btn.title="Send (Enter)";
   btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/><\/svg>';
-  btn.disabled=(!inp?.value.trim()&&!S.pendingFiles.length);
+  const anyLoading=S.pendingFiles.some(f=>f.loading);
+  if(anyLoading){
+    btn.disabled=true;
+    btn.title="Reading file — please wait…";
+  } else {
+    btn.disabled=(!inp?.value.trim()&&!S.pendingFiles.length);
+    btn.title="Send (Enter)";
+  }
   $("token-hint").textContent=tok(inp?.value||"").toLocaleString()+" est. tokens";
 }
 function autoResize(el) {
@@ -1942,19 +1948,22 @@ function addFile(file){
     r.readAsDataURL(file);
 
   } else if(file.type==="application/pdf"){
-    // PDFs → extract real text via PDF.js
-    showToast("Reading PDF…","",60000);
+    // PDFs → extract real text via PDF.js (async)
+    // Mark as loading so send button is disabled until done
+    entry.loading=true;
+    renderChips(); updateSend();
     extractPdfText(file)
       .then(text=>{
         entry.textContent=text;
+        entry.loading=false;
         renderChips(); updateSend();
-        showToast("PDF ready — "+pdf_pages(text)+" pages extracted","success",3000);
+        showToast("PDF ready — "+pdf_pages(text)+" pages extracted. Now send your question.","success",4000);
       })
       .catch(e=>{
-        // Fallback: send as binary text — at least the AI knows a PDF was attached
-        entry.textContent="[PDF attached: "+file.name+". Text extraction failed: "+e.message+"]";
+        entry.textContent="[PDF: "+file.name+" — text extraction failed: "+e.message+"]";
+        entry.loading=false;
         renderChips(); updateSend();
-        showToast("PDF read error — AI will know it was attached","error",3000);
+        showToast("PDF read error: "+e.message,"error",4000);
       });
 
   } else {
@@ -1976,11 +1985,12 @@ function removeFile(i){S.pendingFiles.splice(i,1);renderChips();updateSend();}
 function renderChips(){
   const bar=$("file-chips-bar");
   bar.innerHTML=S.pendingFiles.map((f,i)=>{
-    const thumb=f.dataUrl?'<img src="'+f.dataUrl+'" alt="">':"<span class='file-chip-icon'>"+(f.type==="application/pdf"?"📄":"📝")+"</span>";
+    const thumb=f.dataUrl?'<img src="'+f.dataUrl+'" alt="">':"<span class='file-chip-icon'>"+(f.loading?"⏳":f.type==="application/pdf"?"📄":"📝")+"</span>";
     const sz=f.size<1024?f.size+"B":f.size<1048576?(f.size/1024).toFixed(1)+"KB":(f.size/1048576).toFixed(1)+"MB";
-    const isMd=f.name.endsWith(".md")||f.name.endsWith(".txt");
+    const loadingBadge=f.loading?'<span style="font-size:10px;color:var(--accent);font-weight:600">Reading…</span>':""
+    const isMd=!f.loading&&(f.name.endsWith(".md")||f.name.endsWith(".txt"));
     const skillBtn=isMd?'<button class="file-chip-skill-btn" id="skill-install-'+i+'" onclick="installSkillFromFile('+i+',this)" title="Install as a persistent skill">⚡ Skill</button>':"";
-    return '<div class="file-chip">'+thumb+'<span class="file-chip-name" title="'+esc(f.name)+'">'+esc(f.name)+'</span><span style="font-size:10px;color:var(--muted)">'+sz+'</span>'+skillBtn+'<button class="file-chip-rm" onclick="removeFile('+i+')">✕</button></div>';
+    return '<div class="file-chip">'+thumb+'<span class="file-chip-name" title="'+esc(f.name)+'">'+esc(f.name)+'</span>'+loadingBadge+'<span style="font-size:10px;color:var(--muted)">'+sz+'</span>'+skillBtn+'<button class="file-chip-rm" onclick="removeFile('+i+')">✕</button></div>';
   }).join("");
 }
 
