@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260530-7';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260530-8';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -726,7 +726,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
           </button>
           <button class="compose-btn" id="sparkle-btn" onclick="toggleTray()" title="Skills">✶</button>
           <button class="compose-btn" id="web-btn" onclick="toggleWeb()" title="Toggle web access (search + read URLs)">🌐</button>
-          <input type="file" id="file-input" style="display:none" multiple accept="image/*,.pdf,.txt,.md" onchange="handleFiles(this.files)">
+          <input type="file" id="file-input" style="display:none" multiple accept="image/*,.pdf,.txt,.md,.csv,.json,.xml,.html,.js,.py,.java,.cpp,.c,.ts,.doc,.docx" onchange="handleFiles(this.files)">
           <span class="compose-spacer"></span>
           <span class="token-hint" id="token-hint">0 est. tokens</span>
           <button id="send-btn" onclick="send()" title="Send (Enter)" disabled>
@@ -1729,8 +1729,19 @@ function buildApiMessages(filesSnap) {
       const parts=[];
       if(lastMsg.content) parts.push({type:"text",text:lastMsg.content});
       filesSnap.forEach(f=>{
-        if(f.type?.startsWith("image/")&&f.dataUrl) parts.push({type:"image_url",image_url:{url:f.dataUrl}});
-        else if(f.textContent) parts.push({type:"text",text:"[File: "+f.name+"]\n"+f.textContent});
+        if(f.type?.startsWith("image/")&&f.dataUrl){
+          // Vision: send as image
+          parts.push({type:"image_url",image_url:{url:f.dataUrl}});
+        } else if(f.textContent){
+          // PDF / text / doc: send full extracted content clearly wrapped
+          parts.push({type:"text",text:
+            "=== ATTACHED FILE: "+f.name+" ===\n"+
+            f.textContent+
+            "\n=== END OF FILE: "+f.name+" ==="
+          });
+        } else {
+          parts.push({type:"text",text:"[File attached: "+f.name+" — still loading, please wait and resend]"});
+        }
       });
       msgs.push({role:"user",content:parts});
     } else {
@@ -1897,14 +1908,69 @@ function onPaste(e) {
 }
 
 function handleFiles(files){Array.from(files).forEach(addFile);$("file-input").value="";}
+
+// ── PDF text extraction via PDF.js ────────────────────────────
+async function extractPdfText(file) {
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+  if(!window.pdfjsLib) throw new Error("PDF.js failed to load");
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  const maxPages = Math.min(pdf.numPages, 100); // up to 100 pages
+  let text = `[PDF: ${file.name} — ${pdf.numPages} pages]\n\n`;
+  for(let i=1; i<=maxPages; i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(it=>it.str).join(" ").trim();
+    if(pageText) text += `--- Page ${i} ---\n${pageText}\n\n`;
+  }
+  if(pdf.numPages > maxPages) text += `[Truncated: showing ${maxPages} of ${pdf.numPages} pages]\n`;
+  return text.trim();
+}
+
 function addFile(file){
   if(S.pendingFiles.length>=5){showToast("Max 5 files allowed","error");return;}
-  if(file.size>15*1024*1024){showToast(file.name+" is over 15MB","error");return;}
+  if(file.size>25*1024*1024){showToast(file.name+" is over 25MB","error");return;}
   const entry={name:file.name,type:file.type,size:file.size,dataUrl:null,textContent:null,raw:file};
-  const r=new FileReader();
-  if(file.type.startsWith("image/")){r.onload=e=>{entry.dataUrl=e.target.result;renderChips();updateSend();};r.readAsDataURL(file);}
-  else{r.onload=e=>{entry.textContent=e.target.result;renderChips();updateSend();};r.readAsText(file);}
   S.pendingFiles.push(entry); renderChips(); updateSend();
+
+  if(file.type.startsWith("image/")){
+    // Images → base64 for vision models
+    const r=new FileReader();
+    r.onload=e=>{entry.dataUrl=e.target.result; renderChips(); updateSend();};
+    r.readAsDataURL(file);
+
+  } else if(file.type==="application/pdf"){
+    // PDFs → extract real text via PDF.js
+    showToast("Reading PDF…","",60000);
+    extractPdfText(file)
+      .then(text=>{
+        entry.textContent=text;
+        renderChips(); updateSend();
+        showToast("PDF ready — "+pdf_pages(text)+" pages extracted","success",3000);
+      })
+      .catch(e=>{
+        // Fallback: send as binary text — at least the AI knows a PDF was attached
+        entry.textContent="[PDF attached: "+file.name+". Text extraction failed: "+e.message+"]";
+        renderChips(); updateSend();
+        showToast("PDF read error — AI will know it was attached","error",3000);
+      });
+
+  } else {
+    // Plain text, markdown, CSV, code files → read as UTF-8 text
+    const r=new FileReader();
+    r.onload=e=>{
+      entry.textContent="[File: "+file.name+"]\n\n"+e.target.result;
+      renderChips(); updateSend();
+    };
+    r.onerror=()=>{entry.textContent="[Could not read: "+file.name+"]"; renderChips();};
+    r.readAsText(file,"UTF-8");
+  }
+}
+
+function pdf_pages(text){
+  const m=text.match(/--- Page \d+ ---/g); return m?m.length:1;
 }
 function removeFile(i){S.pendingFiles.splice(i,1);renderChips();updateSend();}
 function renderChips(){
