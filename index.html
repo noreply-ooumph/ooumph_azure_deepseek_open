@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260530-1';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260530-2';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -947,11 +947,12 @@ async function fbSaveNow() {
   } catch(e) { console.warn("Firestore save:", e.message); }
 }
 
-// Debounced — waits 1.8 s after last change before writing to Firestore
+// Debounced — waits 400ms after last keystroke before writing to Firestore
+// (short enough that closing tab rarely loses data)
 function scheduleFsSave() {
   if (!_fbUser) return;
   clearTimeout(_fsSaveTimer);
-  _fsSaveTimer = setTimeout(fbSaveNow, 1800);
+  _fsSaveTimer = setTimeout(fbSaveNow, 400);
 }
 
 // ── Auth UI ───────────────────────────────────────────────────
@@ -1165,8 +1166,22 @@ function loadSkillsLS() {
     saveSkills();
   }
 }
-// Ensure chats are saved before unload
-window.addEventListener("beforeunload", () => { saveChats(); });
+// Save on beforeunload (localStorage — synchronous, always works)
+window.addEventListener("beforeunload", () => {
+  try {
+    if (S.chats.length) localStorage.setItem(LS_CHATS, JSON.stringify(S.chats));
+    if (S.current) localStorage.setItem(LS_LAST, S.current.id);
+  } catch(e) {}
+});
+
+// Save to Firestore when tab is hidden/switched (fires BEFORE beforeunload,
+// gives the browser time to complete the async write)
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    clearTimeout(_fsSaveTimer);
+    fbSaveNow(); // immediate flush, no debounce
+  }
+});
 
 // ═══════════════════════════════════════════════════
 // TOKENS
@@ -1640,7 +1655,11 @@ async function send() {
       metaEl.appendChild(cb);
     }
     checkAndAddExportButtons(aMsg,cEl);
-    S.streaming=false; S.current.updatedAt=now(); updateSend(); saveChats(); updateTokens(); scrollBottom();
+    S.streaming=false; S.current.updatedAt=now(); updateSend(); saveChats();
+    // Flush to Firestore immediately after every completed response
+    // so closing the tab right after never loses a message
+    fbSaveNow();
+    updateTokens(); scrollBottom();
     try{localStorage.setItem(LS_LAST,S.current.id);}catch(e){}
     if(window.innerWidth<=768){ toggleSidebar(false); }
   }
@@ -2020,22 +2039,40 @@ async function onSignedIn(user) {
   $("signout-btn").style.display = "flex";
   $("u-email-text").textContent = user.email;
 
-  // Load chats from Firestore (authoritative cross-device source)
+  // ── Smart merge: pick whichever source is newer ──────────────
+  // Problem: debounced Firestore saves can lag behind localStorage.
+  // If the browser closed before the debounce fired, Firestore is stale.
+  // Solution: compare updatedAt timestamps and always use the fresher data.
   const data = await fbLoadUserData(user.uid);
-  if (data && Array.isArray(data.chats) && data.chats.length) {
-    S.chats = data.chats;
+  loadChatsLS(); // always read localStorage first
+
+  const fsChats    = (data && Array.isArray(data.chats)) ? data.chats : [];
+  const lsChats    = S.chats;
+
+  // Latest updatedAt in each source (0 if empty)
+  const fsTs = fsChats.reduce((m,c)=>Math.max(m,c.updatedAt||0),0);
+  const lsTs = lsChats.reduce((m,c)=>Math.max(m,c.updatedAt||0),0);
+
+  if (fsChats.length === 0 && lsChats.length === 0) {
+    // Both empty — nothing to do
+    S.chats = [];
+  } else if (fsTs >= lsTs && fsChats.length > 0) {
+    // Firestore is equal or newer (normal cross-device case)
+    S.chats = fsChats;
     try { localStorage.setItem(LS_CHATS, JSON.stringify(S.chats)); } catch(e) {}
   } else {
-    // First login or empty Firestore — seed from localStorage
-    loadChatsLS();
-    if (S.chats.length) await fbSaveNow(); // push local chats to cloud
+    // localStorage is newer (tab closed before Firestore debounce fired)
+    S.chats = lsChats;
+    await fbSaveNow(); // push the fresher local data to Firestore immediately
   }
 
-  // Load skills (prefer Firestore, fall back to localStorage)
-  if (data && Array.isArray(data.skills) && data.skills.length) {
-    S.skills = data.skills;
-  } else {
+  // Skills: same merge logic
+  const fsSkills = (data && Array.isArray(data.skills) && data.skills.length) ? data.skills : null;
+  if (!fsSkills) {
     loadSkillsLS();
+    if (S.skills.length) await fbSaveNow();
+  } else {
+    S.skills = fsSkills;
   }
 
   // Hide auth overlay and boot the app
