@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260529-7';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260529-8';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -191,6 +191,14 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .file-chip-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 .file-chip-rm{color:var(--muted);font-size:14px;flex-shrink:0;padding:0 2px}
 .file-chip-rm:hover{color:var(--danger)}
+.file-chip-skill-btn{
+  font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;flex-shrink:0;
+  background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent);
+  cursor:pointer;white-space:nowrap;font-family:inherit;
+  transition:background var(--trans),opacity var(--trans);
+}
+.file-chip-skill-btn:hover{background:var(--accent);color:#fff}
+.file-chip-skill-btn.installed{background:rgba(76,175,80,0.15);color:#4caf50;border-color:#4caf50;cursor:default}
 
 /* ─── SKILLS TRAY ─── */
 #skills-tray{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);width:min(680px,calc(100% - 32px));background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;z-index:200;box-shadow:0 12px 32px rgba(0,0,0,0.5);display:none}
@@ -1648,8 +1656,50 @@ function renderChips(){
   bar.innerHTML=S.pendingFiles.map((f,i)=>{
     const thumb=f.dataUrl?'<img src="'+f.dataUrl+'" alt="">':"<span class='file-chip-icon'>"+(f.type==="application/pdf"?"📄":"📝")+"</span>";
     const sz=f.size<1024?f.size+"B":f.size<1048576?(f.size/1024).toFixed(1)+"KB":(f.size/1048576).toFixed(1)+"MB";
-    return '<div class="file-chip">'+thumb+'<span class="file-chip-name" title="'+esc(f.name)+'">'+esc(f.name)+'</span><span style="font-size:10px;color:var(--muted)">'+sz+'</span><button class="file-chip-rm" onclick="removeFile('+i+')">✕</button></div>';
+    const isMd=f.name.endsWith(".md")||f.name.endsWith(".txt");
+    const skillBtn=isMd?'<button class="file-chip-skill-btn" id="skill-install-'+i+'" onclick="installSkillFromFile('+i+',this)" title="Install as a persistent skill">⚡ Skill</button>':"";
+    return '<div class="file-chip">'+thumb+'<span class="file-chip-name" title="'+esc(f.name)+'">'+esc(f.name)+'</span><span style="font-size:10px;color:var(--muted)">'+sz+'</span>'+skillBtn+'<button class="file-chip-rm" onclick="removeFile('+i+')">✕</button></div>';
   }).join("");
+}
+
+// Install a .md / .txt file as a persistent skill
+function installSkillFromFile(idx, btn) {
+  const f = S.pendingFiles[idx];
+  if (!f || !f.textContent) { showToast("File still loading — try again in a moment", "error"); return; }
+
+  // Parse skill name from first # heading, or fall back to filename
+  const headingMatch = f.textContent.match(/^#\s+(.+)/m);
+  const rawName = headingMatch ? headingMatch[1].trim() : f.name.replace(/\.(md|txt)$/i, "");
+
+  // Use content after the first heading as the prompt, or full content
+  const promptBody = headingMatch
+    ? f.textContent.slice(f.textContent.indexOf("\n")).trim()
+    : f.textContent.trim();
+
+  // Pick a sensible icon from the content keywords
+  const icons = {code:"💻",write:"✍️",analys:"🔍",research:"📚",data:"📊",math:"🧮",translate:"🌐",legal:"⚖️",market:"📈",design:"🎨"};
+  const lower = (rawName + promptBody).toLowerCase();
+  const icon = Object.entries(icons).find(([k])=>lower.includes(k))?.[1] || "💡";
+
+  // Check for duplicates by name
+  const existing = S.skills.find(s => s.name.toLowerCase() === rawName.toLowerCase());
+  if (existing) {
+    // Update existing skill
+    existing.prompt = promptBody;
+    existing.icon   = icon;
+    saveSkills();
+    btn.textContent = "✓ Updated";
+    btn.className   = "file-chip-skill-btn installed";
+    showToast('Skill "'+rawName+'" updated ✓', "success");
+    return;
+  }
+
+  // Create new skill
+  S.skills.push({ id: genId(), name: rawName, icon, description: "Installed from " + f.name, prompt: promptBody });
+  saveSkills();
+  btn.textContent = "✓ Installed";
+  btn.className   = "file-chip-skill-btn installed";
+  showToast('Skill "'+rawName+'" installed — click ✶ to activate it', "success", 4000);
 }
 function onDragOver(e){e.preventDefault();$("composer").style.borderColor="var(--accent)";}
 function onDragLeave(){$("composer").style.borderColor="";}
