@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>!function(){var v='20260529-9';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
+<script>!function(){var v='20260530-1';if(localStorage.getItem('_ov')!==v){localStorage.setItem('_ov',v);location.reload(true);}}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
@@ -138,6 +138,18 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
 .cursor-blink{display:inline-block;width:2px;height:14px;background:var(--accent);margin-left:2px;animation:blink 0.7s step-end infinite;vertical-align:text-bottom}
 @keyframes blink{50%{opacity:0}}
 
+/* ─── WEB / TOOL CALL UI ─── */
+.tool-calls-wrap{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.tool-call-line{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);animation:fadeIn 0.2s ease}
+.tc-icon{font-size:15px;flex-shrink:0}
+.tc-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;max-width:340px}
+.tc-status{flex-shrink:0;font-size:11px}
+.tc-status.done{color:#4caf50}
+.tc-status.running{color:var(--accent);animation:blink 1s step-end infinite}
+/* Web toggle button */
+#web-btn{position:relative}
+#web-btn.web-on{color:var(--accent)!important;background:var(--accent-dim)!important;border-radius:8px}
+#web-btn.web-on::after{content:"";position:absolute;top:5px;right:5px;width:5px;height:5px;background:#4caf50;border-radius:50%}
 /* ─── THINKING DOTS ─── */
 .thinking-dots{display:inline-flex;gap:5px;align-items:center;padding:4px 2px}
 .thinking-dots span{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:dot-bounce 1.3s infinite ease-in-out both}
@@ -713,6 +725,7 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
           </button>
           <button class="compose-btn" id="sparkle-btn" onclick="toggleTray()" title="Skills">✶</button>
+          <button class="compose-btn" id="web-btn" onclick="toggleWeb()" title="Toggle web access (search + read URLs)">🌐</button>
           <input type="file" id="file-input" style="display:none" multiple accept="image/*,.pdf,.txt,.md" onchange="handleFiles(this.files)">
           <span class="compose-spacer"></span>
           <span class="token-hint" id="token-hint">0 est. tokens</span>
@@ -776,6 +789,94 @@ input,textarea{font:inherit;color:inherit;background:none;border:none;outline:no
   <button onclick="ctxStar()">☆ Star / Unstar</button>
   <button class="danger" onclick="ctxDelete()">🗑 Delete</button>
 </div><script>
+// ════════════════════════════════════════════════════════════════
+// WEB ACCESS + TOOL USE  (like Claude Code / Perplexity)
+// ════════════════════════════════════════════════════════════════
+// For full web search: get a FREE Brave Search API key (2000/month, no CC):
+//   https://api.search.brave.com  → Sign up → API Keys → Create key
+// Leave empty to use DuckDuckGo fallback (instant answers only).
+const BRAVE_KEY = "";
+
+const AI_TOOLS = [
+  {
+    type:"function",
+    function:{
+      name:"web_search",
+      description:"Search the web for current, real-time information: news, prices, documentation, events, anything after your training cutoff. Always use this for recent facts.",
+      parameters:{
+        type:"object",
+        properties:{ query:{type:"string",description:"Precise search query"} },
+        required:["query"]
+      }
+    }
+  },
+  {
+    type:"function",
+    function:{
+      name:"read_url",
+      description:"Fetch and read the full text content of any webpage. Use after web_search to get details from a specific page.",
+      parameters:{
+        type:"object",
+        properties:{ url:{type:"string",description:"Full https:// URL to read"} },
+        required:["url"]
+      }
+    }
+  }
+];
+
+async function searchWeb(query) {
+  try {
+    if (BRAVE_KEY) {
+      const r = await fetch(
+        "https://api.search.brave.com/res/v1/web/search?q="+encodeURIComponent(query)+"&count=6&search_lang=en",
+        { headers:{"Accept":"application/json","X-Subscription-Token":BRAVE_KEY} }
+      );
+      if (!r.ok) throw new Error("Brave "+r.status);
+      const d = await r.json();
+      const hits = (d.web?.results||[]).slice(0,6);
+      return hits.length
+        ? hits.map((h,i)=>`[${i+1}] ${h.title}\nURL: ${h.url}\n${h.description||""}`).join("\n\n")
+        : "No results found.";
+    }
+    // Fallback: DuckDuckGo Instant Answers (no key needed)
+    const r = await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(query)+"&format=json&no_html=1&skip_disambig=1");
+    const d = await r.json();
+    const parts=[];
+    if(d.AbstractText) parts.push(d.AbstractText);
+    if(d.Answer) parts.push("Answer: "+d.Answer);
+    (d.RelatedTopics||[]).slice(0,5).forEach(t=>{if(t.Text) parts.push(t.Text);});
+    return parts.join("\n\n") || "No results. Add BRAVE_KEY to config for full web search.";
+  } catch(e){ return "Search error: "+e.message; }
+}
+
+async function readUrl(url) {
+  try {
+    const r = await fetch("https://api.allorigins.win/get?url="+encodeURIComponent(url)+"&charset=utf-8");
+    const d = await r.json();
+    const text=(d.contents||"")
+      .replace(/<script[\s\S]*?<\/script>/gi,"")
+      .replace(/<style[\s\S]*?<\/style>/gi,"")
+      .replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,5000);
+    return text||"No readable content at this URL.";
+  } catch(e){ return "Failed to read URL: "+e.message; }
+}
+
+async function runTool(name,argsStr) {
+  try {
+    const args=JSON.parse(argsStr||"{}");
+    if(name==="web_search") return await searchWeb(args.query||"");
+    if(name==="read_url")   return await readUrl(args.url||"");
+    return "Unknown tool: "+name;
+  } catch(e){ return "Tool error: "+e.message; }
+}
+
+function toggleWeb() {
+  S.webEnabled=!S.webEnabled;
+  $("web-btn").classList.toggle("web-on",S.webEnabled);
+  $("web-btn").title=S.webEnabled?"Web access ON — click to turn off":"Web access OFF — click to search the web";
+  showToast(S.webEnabled?"🌐 Web access ON — I can now search the internet":"🌐 Web access OFF","",2200);
+}
+
 // ════════════════════════════════════════════════════════════════
 // FIREBASE — EMAIL LOGIN + CROSS-DEVICE CHAT SYNC
 // ════════════════════════════════════════════════════════════════
@@ -958,7 +1059,7 @@ const S = {
   chats:[], current:null, model:MODELS[0],
   skills:[], activeSkills:new Set(), pendingFiles:[],
   streaming:false, tokens:{p:0,c:0}, search:"", ctxId:null,
-  sbTab:"chats",
+  sbTab:"chats", webEnabled:false,
 };
 
 // ═══════════════════════════════════════════════════
@@ -1393,68 +1494,137 @@ async function send() {
   const aEl=mkMsgEl(aMsg); msgsEl.appendChild(aEl);
   const cEl=aEl.querySelector(".msg-bubble"); scrollBottom();
   S.streaming=true; updateSend(); $("topbar-title").textContent=S.current.title; renderChatList();
+  // Tool call wrap shown above the bubble when web is active
+  const toolWrap=document.createElement("div");
+  toolWrap.className="tool-calls-wrap";
+  toolWrap.style.display="none";
+  aEl.querySelector(".msg-body").insertBefore(toolWrap,cEl);
+
   try {
-    const apiMessages=buildApiMessages(filesSnap);
-    const url=AZURE_BASE+"/models/chat/completions?api-version="+API_VER;
-    S.abortCtrl=new AbortController();const _tmr=setTimeout(()=>S.abortCtrl?.abort(),45000);const resp=await fetch(url,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","api-key":AZURE_KEY},signal:S.abortCtrl?.signal,
-      body:JSON.stringify({model:S.model,messages:apiMessages,max_tokens:2048,temperature:0.3,stream:true,top_p:0.9}),
-    });
-    clearTimeout(_tmr);if(!resp.ok){const errText=await resp.text();throw new Error(resp.status+": "+errText);}
-    // Show thinking dots before first token
-    cEl.className="msg-bubble streaming";
-    cEl.innerHTML='<span class="thinking-dots"><span></span><span></span><span></span></span>';
-    const reader=resp.body.getReader(); const dec=new TextDecoder();
+    const CHAT_URL=AZURE_BASE+"/models/chat/completions?api-version="+API_VER;
+    let apiMessages=buildApiMessages(filesSnap);
+    S.abortCtrl=new AbortController();
 
-    // ── Character drip queue ──────────────────────────────
-    // Tokens arrive from the network in bursts (TCP packets).
-    // We buffer every character and drain them at a fixed rate
-    // so the text flows out smoothly rather than in jumps.
-    let charQueue=[], drainRaf=null, displayedContent="";
-    const CHARS_PER_FRAME=3; // ~180 chars/sec at 60 fps — feels like fast human typing
-
-    function drainChars(){
-      if(!charQueue.length){ drainRaf=null; return; }
-      const chunk=charQueue.splice(0,CHARS_PER_FRAME).join("");
-      displayedContent+=chunk;
-      cEl.className="msg-bubble streaming";
-      cEl.textContent=displayedContent;
-      cEl.appendChild(Object.assign(document.createElement("span"),{className:"cursor-blink"}));
-      scrollBottom(false);
-      drainRaf=requestAnimationFrame(drainChars);
-    }
-
-    // Wait until queue fully drained (called after network read finishes)
-    function waitDrained(){
-      return new Promise(res=>{
-        function check(){ if(!charQueue.length){res();}else{requestAnimationFrame(check);} }
-        check();
+    // ── Tool-use loop (max 5 rounds to prevent infinite loops) ──
+    for(let round=0; round<5; round++){
+      const payload={
+        model:S.model, messages:apiMessages,
+        max_tokens:2048, temperature:0.3, stream:true, top_p:0.9,
+        ...(S.webEnabled?{tools:AI_TOOLS,tool_choice:"auto"}:{})
+      };
+      const _tmr=setTimeout(()=>S.abortCtrl?.abort(),60000);
+      const resp=await fetch(CHAT_URL,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","api-key":AZURE_KEY},
+        signal:S.abortCtrl?.signal,
+        body:JSON.stringify(payload)
       });
-    }
+      clearTimeout(_tmr);
+      if(!resp.ok){const errText=await resp.text();throw new Error(resp.status+": "+errText);}
 
-    let buf="";
-    while(true){
-      const{done,value}=await reader.read(); if(done) break;
-      buf+=dec.decode(value,{stream:true});
-      const lines=buf.split("\n"); buf=lines.pop();
-      for(const line of lines){
-        if(!line.startsWith("data: ")) continue;
-        const d=line.slice(6).trim(); if(d==="[DONE]") continue;
-        try{
-          const token=JSON.parse(d).choices?.[0]?.delta?.content||"";
-          if(token){
-            aMsg.content+=token; // full content for storage
-            S.tokens.c+=tok(token); updateTokens();
-            charQueue.push(...token.split(""));
-            if(!drainRaf) drainRaf=requestAnimationFrame(drainChars);
-          }
-        }catch(e){}
+      // Show thinking dots
+      cEl.className="msg-bubble streaming";
+      cEl.innerHTML='<span class="thinking-dots"><span></span><span></span><span></span></span>';
+
+      // ── Stream + accumulate tool calls ──────────────────────
+      const reader=resp.body.getReader(); const dec=new TextDecoder();
+      let charQueue=[], drainRaf=null, displayedContent="";
+      let buf="", tcAccum={};
+
+      function drainChars(){
+        if(!charQueue.length){drainRaf=null;return;}
+        const chunk=charQueue.splice(0,3).join("");
+        displayedContent+=chunk;
+        cEl.className="msg-bubble streaming";
+        cEl.textContent=displayedContent;
+        cEl.appendChild(Object.assign(document.createElement("span"),{className:"cursor-blink"}));
+        scrollBottom(false);
+        drainRaf=requestAnimationFrame(drainChars);
       }
+      function waitDrained(){
+        return new Promise(res=>{function check(){if(!charQueue.length)res();else requestAnimationFrame(check);}check();});
+      }
+
+      while(true){
+        const{done,value}=await reader.read(); if(done) break;
+        buf+=dec.decode(value,{stream:true});
+        const lines=buf.split("\n"); buf=lines.pop();
+        for(const line of lines){
+          if(!line.startsWith("data: ")) continue;
+          const raw=line.slice(6).trim(); if(raw==="[DONE]") continue;
+          try{
+            const parsed=JSON.parse(raw);
+            const delta=parsed.choices?.[0]?.delta;
+            if(!delta) continue;
+            // Text content
+            const token=delta.content||"";
+            if(token){
+              aMsg.content+=token;
+              S.tokens.c+=tok(token); updateTokens();
+              charQueue.push(...token.split(""));
+              if(!drainRaf) drainRaf=requestAnimationFrame(drainChars);
+            }
+            // Tool call fragments
+            if(delta.tool_calls){
+              for(const tc of delta.tool_calls){
+                if(!tcAccum[tc.index]) tcAccum[tc.index]={id:"",name:"",args:""};
+                if(tc.id) tcAccum[tc.index].id=tc.id;
+                if(tc.function?.name) tcAccum[tc.index].name=tc.function.name;
+                if(tc.function?.arguments) tcAccum[tc.index].args+=tc.function.arguments;
+              }
+            }
+          }catch(e){}
+        }
+      }
+      await waitDrained();
+      if(drainRaf){cancelAnimationFrame(drainRaf);drainRaf=null;}
+
+      // ── Check for tool calls ──────────────────────────────
+      const toolCalls=Object.values(tcAccum);
+      if(!toolCalls.length) break; // normal response, done
+
+      // Push assistant message with tool_calls to history
+      apiMessages.push({
+        role:"assistant",
+        content:aMsg.content||null,
+        tool_calls:toolCalls.map(tc=>({
+          id:tc.id||("call_"+genId()),
+          type:"function",
+          function:{name:tc.name,arguments:tc.args}
+        }))
+      });
+
+      // Show tool call panel
+      toolWrap.style.display="flex";
+      aMsg.content=""; displayedContent="";
+
+      // Execute each tool and show progress
+      for(const tc of toolCalls){
+        const icon=tc.name==="web_search"?"🔍":"📄";
+        let labelArgs={}; try{labelArgs=JSON.parse(tc.args||"{}");}catch(e){}
+        const labelText=tc.name==="web_search"
+          ? "Searching: "+esc(labelArgs.query||"")
+          : "Reading: "+esc(labelArgs.url||"");
+
+        const line=document.createElement("div");
+        line.className="tool-call-line";
+        line.innerHTML=`<span class="tc-icon">${icon}</span><span class="tc-text">${labelText}</span><span class="tc-status running">…</span>`;
+        toolWrap.appendChild(line);
+        scrollBottom(false);
+
+        const result=await runTool(tc.name,tc.args);
+
+        line.querySelector(".tc-status").textContent="✓";
+        line.querySelector(".tc-status").className="tc-status done";
+
+        apiMessages.push({
+          role:"tool",
+          tool_call_id:tc.id||"",
+          content:result
+        });
+      }
+      // Loop again — model now has tool results and will write the response
     }
-    // Let the drip queue finish before finalising
-    await waitDrained();
-    if(drainRaf){ cancelAnimationFrame(drainRaf); drainRaf=null; }
   } catch(e){
     aMsg.content="⚠️ "+e.message;
   } finally {
