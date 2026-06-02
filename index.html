@@ -927,15 +927,19 @@ function toggleWeb() {
 //  After that, anyone you add via Firebase Console → Authentication
 //  → Users → Add user can log in and their chats sync across devices.
 // ════════════════════════════════════════════════════════════════
-const FIREBASE_CONFIG = {
-  apiKey:            "",
-  authDomain:        "ooumphapp.firebaseapp.com",
-  projectId:         "ooumphapp",
-  storageBucket:     "ooumphapp.firebasestorage.app",
-  messagingSenderId: "964549387783",
-  appId:             "1:964549387783:web:3eef17fe93b073c1cc6ca2",
-  measurementId:     "G-M905DWXY85"
-};
+let FIREBASE_CONFIG = {};
+
+fetch('/config')
+  .then(res => res.json())
+  .then(config => {
+    FIREBASE_CONFIG = {
+      ...config,
+      messagingSenderId: "964549387783",
+      appId: "1:964549387783:web:3eef17fe93b073c1cc6ca2",
+      measurementId: "G-M905DWXY85"
+    };
+    firebase.initializeApp(FIREBASE_CONFIG);
+  });
 
 // Set to false to disable auth entirely and run without login
 const AUTH_ENABLED = !FIREBASE_CONFIG.apiKey.startsWith("REPLACE");
