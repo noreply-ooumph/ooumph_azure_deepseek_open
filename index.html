@@ -930,6 +930,7 @@ function toggleWeb() {
 let FIREBASE_CONFIG = {};
 
 const FIREBASE_CONFIG = {
+<<<<<<< HEAD
   apiKey: "AIzaSyB912DkZ-5DcBxTKAeE8I_TBeQvawAKbJg",
   authDomain: "ooumphapp.firebaseapp.com",
   projectId: "ooumphapp",
@@ -939,6 +940,18 @@ const FIREBASE_CONFIG = {
   measurementId: "G-M905DWXY85"
 };
 firebase.initializeApp(FIREBASE_CONFIG);
+=======
+  apiKey: 'AIzaSyB912DkZ-5DcBxTKAeE8I_TBeQvawAKbJg',
+  authDomain: 'ooumphapp.firebaseapp.com',
+  projectId: 'ooumphapp',
+  storageBucket: 'ooumphapp.firebasestorage.app',
+  messagingSenderId: '964549387783',
+  appId: '1:964549387783:web:3eef17fe93b073c1cc6ca2',
+  measurementId: 'G-M905DWXY85'
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+  });
+>>>>>>> aadf0a6 (fix firebase config for github pages)
 
 // Set to false to disable auth entirely and run without login
 const AUTH_ENABLED = !FIREBASE_CONFIG.apiKey.startsWith("REPLACE");
@@ -2390,3 +2403,4 @@ async function exportDocx(content,fname){
 </script>
 </body>
 </html>
+
