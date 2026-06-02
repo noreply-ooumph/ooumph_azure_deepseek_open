@@ -7,7 +7,7 @@ const url = require("url");
 const db = require("./db");
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-const AZURE_BASE = process.env.AZURE_BASE || "https://ai-praveenmishraai8491456994967768.services.ai.azure.com";
+const AZURE_BASE = process.env.AZURE_BASE || "";
 const AZURE_API_KEY = process.env.AZURE_API_KEY || "";
 const API_VERSION = process.env.API_VERSION || "2024-05-01-preview";
 const PORT = process.env.PORT || 3000;
