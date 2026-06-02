@@ -7,9 +7,7 @@ Node.js v14+  — zero npm installs needed
 
 ### Step 1 — Edit server.js (lines 8–10)
 ```js
-const AZURE_BASE    = "https://ai-praveenmishraai8491456994967768.services.ai.azure.com";
-const AZURE_API_KEY = "Fq04ZUOnjv0YpY39JUp9YZ922aZqTpc7glsIpbBl2Ki11ZIAmb0qJQQJ99CEACYeBjFXJ3w3AAAAACOGQ9Nb";
-const API_VERSION   = "2024-05-01-preview";
+
 
 const DEPLOYMENTS = [
   "DeepSeek-V4-Flash",
