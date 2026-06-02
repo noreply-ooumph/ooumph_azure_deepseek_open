@@ -936,8 +936,9 @@ const FIREBASE_CONFIG = {
   appId: "1:964549387783:web:3eef17fe93b073c1cc6ca2",
   measurementId: "G-M905DWXY85"
 };
-firebase.initializeApp(FIREBASE_CONFIG);
 
+// Initialize Firebase ONCE
+firebase.initializeApp(FIREBASE_CONFIG);
 
 // Set to false to disable auth entirely and run without login
 const AUTH_ENABLED = !FIREBASE_CONFIG.apiKey.startsWith("REPLACE");
@@ -946,13 +947,15 @@ let _fbAuth = null, _fbDb = null, _fbUser = null, _fsSaveTimer = null;
 
 function fbInit() {
   if (!AUTH_ENABLED) return;
+
   try {
-    firebase.initializeApp(FIREBASE_CONFIG);
     _fbAuth = firebase.auth();
-    _fbDb   = firebase.firestore();
-    // Persist session across browser restarts — user stays logged in permanently
-    _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
-  } catch(e) { console.warn("Firebase init failed:", e.message); }
+    _fbDb = firebase.firestore();
+
+    _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+  } catch (e) {
+    console.warn("Firebase init failed:", e.message);
+  }
 }
 
 async function fbLoadUserData(uid) {
